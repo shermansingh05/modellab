@@ -50,9 +50,8 @@ class ModelEntry(BaseModel):
 
     @model_validator(mode="after")
     def _check_pinning(self) -> ModelEntry:
-        if self.backend == Backend.transformers:
-            if not self.hf_repo or not self.revision or not SHA_RE.match(self.revision):
-                raise ValueError("transformers models must pin hf_repo and a 40-character commit revision")
+        if self.backend == Backend.transformers and (not self.hf_repo or not self.revision or not SHA_RE.match(self.revision)):
+            raise ValueError("transformers models must pin hf_repo and a 40-character commit revision")
         if self.revision and not SHA_RE.match(self.revision):
             raise ValueError("revision must be a 40-character commit hash")
         if self.backend in (Backend.ollama, Backend.vllm) and not self.backend_model:

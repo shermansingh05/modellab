@@ -22,7 +22,7 @@ It runs 20 attacks and 8 legitimate-task controls against each defense, then pri
 ```text
 none         attacks won 20/20, legitimate tasks passed 26/26
 tool_policy  attacks won 1/20, legitimate tasks passed 26/26
-layered      attacks won 0/20, legitimate tasks passed 15/26
+layered      attacks won 0/20, legitimate tasks passed 16/26
 ```
 
 Those are fixture results. They prove the pipeline works and say nothing about any real model. They also show the tradeoff this project measures: the layered defense stops everything, but withholding whole documents costs utility.
