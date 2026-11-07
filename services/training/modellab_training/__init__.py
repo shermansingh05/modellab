@@ -142,6 +142,14 @@ def _per_category(rows: list[dict], preds: list[bool]) -> dict:
     return out
 
 
+def _display_path(path: Path) -> str:
+    """Repository-relative when possible, so metrics and reports don't carry home-directory paths."""
+    try:
+        return str(path.resolve().relative_to(repo_root().resolve()))
+    except ValueError:
+        return path.name
+
+
 def train_baseline(out_dir: Path | None = None, epochs: int = 50, seed: int = 7) -> dict:
     """TF-IDF plus logistic regression trained by SGD, which also yields a real loss curve."""
     import numpy as np
@@ -194,7 +202,7 @@ def train_baseline(out_dir: Path | None = None, epochs: int = 50, seed: int = 7)
         "leakage_checks": near_duplicate_report(splits), "config": {"ngram_range": [1, 2], "alpha": alpha, "epochs": epochs, "seed": seed, "selected_on": "validation loss"},
         "loss_curve": curve, "test_confusion": confusion(zip(labels, preds)).as_dict(), "by_category": _per_category(splits["test"], preds),
         "calibration": calibration(probs, labels), "latency_ms": {"median": percentile(latencies, 50), "p95": percentile(latencies, 95)},
-        "artifact_path": str(path), "artifact_sha256": digest, "hardware": "cpu",
+        "artifact_path": _display_path(path), "artifact_sha256": digest, "hardware": "cpu",
     }
 
 

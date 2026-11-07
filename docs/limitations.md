@@ -16,7 +16,7 @@
 - **Run replay.** Traces can be inspected, and runs can be resumed, but a trial can't be replayed step by step.
 - **Human approval queue.** The guardrail blocks unattended calls, but there's no interface for a person to approve one.
 - **OS-level sandboxing.** See `threat-model.md`.
-- **Trace access controls beyond loopback binding.** GET routes have no authentication.
+- **Trace access controls beyond loopback binding.** GET routes have no authentication. A host check blocks DNS rebinding, but anything running locally can read them.
 - **Native MCP transport.** The MCP server is in-process JSON-RPC, not stdio or HTTP.
 - **Native function calling.** All backends use a text JSON tool protocol.
 - **Cost per task.** Local inference has no known per-token price, so it's reported as null.

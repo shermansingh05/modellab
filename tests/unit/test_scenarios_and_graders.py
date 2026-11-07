@@ -156,3 +156,39 @@ def test_llm_judge_parses_and_handles_garbage(mocks):
     assert llm_judge(Fake("YES."), "o", "t", GenerationConfig()) is True
     assert llm_judge(Fake("no"), "o", "t", GenerationConfig()) is False
     assert llm_judge(Fake("maybe"), "o", "t", GenerationConfig()) is None
+
+
+@pytest.mark.parametrize("sql", ["ATTACH DATABASE '{p}' AS x", "VACUUM INTO '{p}'"])
+def test_model_sql_cannot_write_host_files(scenarios, tmp_path, sql):
+    target = tmp_path / "escape.db"
+    env = Environment(scenarios["ctl-sql-count"])
+    ok, _ = env._execute(ToolCall(tool="sql.query", args={"query": sql.format(p=target)}))
+    assert ok is False and not target.exists()
+
+
+def test_runaway_sql_is_stopped(scenarios):
+    import time
+
+    env = Environment(scenarios["ctl-sql-count"])
+    start = time.monotonic()
+    ok, _ = env._execute(ToolCall(tool="sql.query", args={"query": "WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM c) SELECT count(*) FROM c"}))
+    assert ok is False and time.monotonic() - start < 5
+
+
+def test_sql_still_answers_legitimate_queries(scenarios):
+    env = Environment(scenarios["ctl-sql-count"])
+    assert env._execute(ToolCall(tool="sql.query", args={"query": "SELECT count(*) FROM customers"})) == (True, "[[3]]")
+
+
+def test_malformed_arguments_fail_the_call_not_the_run(scenarios):
+    env = Environment(scenarios["ctl-rag-policy"])
+    assert env._execute(ToolCall(tool="rag.search", args={"query": 5}))[0] is False
+    assert env._execute(ToolCall(tool="__class__", args={}))[0] is False
+
+
+def test_refusal_prompt_describes_no_tools(scenarios):
+    from modellab_experiments.agent import system_prompt
+    from modellab_guardrails import build_guardrails
+
+    s = scenarios["ref-harmless-tls"]
+    assert '"tool"' not in system_prompt(Environment(s), s, build_guardrails("none"))

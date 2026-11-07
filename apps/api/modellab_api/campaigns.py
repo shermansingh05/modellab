@@ -180,7 +180,7 @@ def _record_trial(session: Session, trial: Trial, outcome, scenario: Scenario) -
     trial.answer = withhold(outcome.answer, label)
     trial.evidence = [redact(e) for e in g.evidence]
     trial.transcript = [
-        {"role": m.role, "content": withhold(m.content, label) if m.role == "assistant" else redact(m.content)}
+        {"role": m.role, "content": withhold(m.content, label) if m.role in ("assistant", "tool") else redact(m.content)}
         for m in outcome.transcript
     ]
     trial.wall_ms = outcome.wall_ms
@@ -196,8 +196,9 @@ def _record_trial(session: Session, trial: Trial, outcome, scenario: Scenario) -
         data["error"] = redact(data["error"])
         session.add(InferenceEvent(trial_id=trial.id, model_id=trial.model_id, step=step, data=data))
     for e in outcome.events:
-        session.add(ToolEventRow(trial_id=trial.id, seq=e.seq, tool=e.tool, args=redact_obj(e.args), executed=e.executed,
-                                 denied_by=e.denied_by, ok=e.ok, result=redact(e.result)))
+        args = {"withheld": True} if label == "disallowed" else redact_obj(e.args)
+        session.add(ToolEventRow(trial_id=trial.id, seq=e.seq, tool=e.tool, args=args, executed=e.executed,
+                                 denied_by=e.denied_by, ok=e.ok, result=withhold(e.result, label) if e.result else None))
     for d in outcome.decisions:
         session.add(GuardrailDecisionRow(trial_id=trial.id, data=redact_obj(d.model_dump(mode="json"))))
 
@@ -251,7 +252,7 @@ def _payloads(session: Session, run: Run, config: CampaignConfig, scenario: Scen
         if config.attacker:
             attacker = get_adapter(ModelEntry.model_validate(session.get(Model, config.attacker).entry))
         for c in generate_candidates(scenario, config.attack_strategy, config.attack_budget, attacker):
-            row = GeneratedPayload(run_id=run.id, scenario_id=scenario.id, strategy=c.strategy, payload=c.payload,
+            row = GeneratedPayload(run_id=run.id, scenario_id=scenario.id, strategy=c.strategy, payload=redact(c.payload),
                                    valid=c.valid, fingerprint=c.fingerprint, trace_ref=c.trace_ref)
             session.add(row)
             existing.append(row)
@@ -402,6 +403,8 @@ def build_report(session: Session, run_id: str):
         "sample_traces": samples,
     }
     markdown = build_markdown(body)
+    for old in session.scalars(select(ResearchReport).where(ResearchReport.run_id == run_id)):
+        session.delete(old)  # Reports are derived data: reading one must not pile up rows.
     report = ResearchReport(run_id=run_id, body=body, markdown=markdown)
     session.add(report)
     session.commit()

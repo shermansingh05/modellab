@@ -10,11 +10,14 @@ ModelLab is a research tool for one trusted operator on their own machine. It is
 | Attacker model tampers with the experiment | It returns text only, placed on the scenario's declared surface. It holds no reference to the evaluator, registry, or broker. |
 | A classifier approves something policy forbids | Every guardrail runs, and any denial blocks. Deterministic denials can't be overridden. |
 | Model repositories run code | `trust_remote_code` can't be set to true in the schema. Transformers models must pin a commit, load safetensors only, and download an allowlist of file patterns. |
+| Personal paths in published data | Reports record hardware but no hostname or username, and artifact paths are repository-relative. |
 | Credentials in traces | Synthetic credentials and common token formats are redacted before they're stored. |
 | Harmful output is retained | Replies to disallowed requests are stored as a length and hash unless `MODELLAB_STORE_DISALLOWED_OUTPUT=1`. |
 | Remote callers use admin routes | The API binds to loopback. Anything that runs a model or changes state needs a bearer token, and those routes close if no token is configured. |
 | Another website drives a local run | The web proxy holds the token, and it rejects non-GET requests unless the Origin matches a loopback Host. |
 | Inference reaches a remote host | Adapters refuse non-loopback URLs unless `MODELLAB_ALLOW_REMOTE_INFERENCE=1`. |
+| Model-written SQL reaches the host | An authorizer denies ATTACH, DETACH, and PRAGMA, so the query stays in the in-memory database. Queries get a time limit and a row cap. |
+| Another website reaches the API by DNS rebinding | The API rejects unknown Host headers. |
 | A runaway model | Step, tool-call, token, and wall-clock budgets apply, and runs can be cancelled between steps. |
 
 ## Out of scope, and known gaps

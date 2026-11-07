@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import platform
 import shutil
 from collections.abc import Iterator
@@ -12,6 +13,7 @@ from typing import Any, Generic, TypeVar
 import yaml
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import PlainTextResponse, StreamingResponse
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -73,6 +75,9 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="ModelLab", version="0.1.0", lifespan=lifespan,
               description="Local-first AI security research API. Bind to loopback. See docs/threat-model.md.")
 Admin = Depends(require_admin)
+# Stops DNS rebinding: a hostile website can't reach this loopback API under its own hostname.
+_hosts = ["127.0.0.1", "localhost", "[::1]", "testserver", *filter(None, os.environ.get("MODELLAB_ALLOWED_HOSTS", "").split(","))]
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=_hosts)
 
 
 @app.get("/api/health")

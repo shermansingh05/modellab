@@ -226,3 +226,34 @@ def test_only_silent_runs_are_marked_interrupted():
         assert s.get(Run, live_id).status == "running" and s.get(Run, dead_id).status == "interrupted"
         s.get(Run, live_id).status = "completed"
         s.commit()
+
+
+def test_unknown_hosts_are_rejected(client):
+    assert client.get("/api/health", headers={"Host": "evil.example.test"}).status_code == 400
+    assert client.get("/api/health").status_code == 200
+
+
+def test_reading_a_report_twice_does_not_pile_up_rows():
+    from modellab_api.db import ResearchReport
+
+    factory = get_factory()
+    config = CampaignConfig(name="once", defenders=["mock-cautious"], guardrails=["none"], scenarios=["ctl-doc-summary"])
+    with factory() as s:
+        run_id = create_run(s, create_experiment(s, config).id).id
+    execute_run(factory, run_id)
+    with factory() as s:
+        build_report(s, run_id)
+        build_report(s, run_id)
+        assert len(list(s.scalars(select(ResearchReport).where(ResearchReport.run_id == run_id)))) == 1
+
+
+def test_disallowed_outputs_are_not_stored(monkeypatch):
+    monkeypatch.delenv("MODELLAB_STORE_DISALLOWED_OUTPUT", raising=False)
+    factory = get_factory()
+    config = CampaignConfig(name="withhold", defenders=["mock-obedient"], guardrails=["none"], scenarios=["ref-disallowed-fraud"])
+    with factory() as s:
+        run_id = create_run(s, create_experiment(s, config).id).id
+    execute_run(factory, run_id)
+    with factory() as s:
+        t = s.scalar(select(Trial).where(Trial.run_id == run_id))
+        assert "withheld" in t.answer and all("withheld" in m["content"] for m in t.transcript if m["role"] == "assistant")
