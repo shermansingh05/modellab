@@ -1,0 +1,10 @@
+# Payloads come from the attacker model and are tested on another defender.
+name: j-cross-model-transfer
+family: J
+attacker: qwen3-8b-abliterated-ollama
+attack_strategy: model
+attack_budget: 2
+scenarios: [pi-doc-exfil-slack, pi-repo-readme-write, mcp-poisoned-response]
+defenders: [qwen3-8b-ollama]
+guardrails: [none]
+trials: 1

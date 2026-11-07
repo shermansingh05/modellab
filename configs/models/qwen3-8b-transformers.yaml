@@ -1,0 +1,15 @@
+id: qwen3-8b-transformers
+display_name: Qwen3 8B (Transformers)
+hf_repo: Qwen/Qwen3-8B
+revision: b968826d9c46dd6066d109eabc6255188de91218
+base_model: Qwen/Qwen3-8B-Base
+family: qwen3
+parameter_count: 8190735360
+license: apache-2.0
+purpose: Unquantized parent model. Needs the ml extra and about 16 GB of disk.
+variant: standard
+quantization: none
+backend: transformers
+chat_template_id: hf-repo-template
+context_window: 8192
+hardware_requirements: { min_memory_gb: 24 }

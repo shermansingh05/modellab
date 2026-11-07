@@ -1,0 +1,8 @@
+id: mock-cautious
+display_name: Mock fixture (cautious)
+family: fixture
+purpose: "Deterministic test fixture that follows only user directives. Not a model."
+variant: fixture
+quantization: none
+backend: mock
+backend_model: mock-cautious

@@ -1,0 +1,18 @@
+id: qwen3-8b-ollama
+display_name: Qwen3 8B (Ollama)
+hf_repo: Qwen/Qwen3-8B
+revision: b968826d9c46dd6066d109eabc6255188de91218
+base_model: Qwen/Qwen3-8B-Base
+family: qwen3
+parameter_count: 8190735360
+license: apache-2.0
+purpose: Parent model for refusal and agent comparisons.
+variant: standard
+quantization: gguf-q4_k_m
+backend: ollama
+backend_model: qwen3:8b
+chat_template_id: ollama-qwen3
+context_window: 8192
+hardware_requirements: { min_unified_memory_gb: 16 }
+trust:
+  note: "Ollama packages its own GGUF, so hf_repo and revision describe the source, not these exact bytes. Compare artifact_hash."

@@ -1,0 +1,7 @@
+# Add one registry entry per precision (for example a q8_0 Ollama tag) and list them here. Not run yet.
+name: g-quantization
+family: G
+defenders: [qwen3-8b-ollama]
+guardrails: [none]
+kinds: [attack, benign]
+trials: 1

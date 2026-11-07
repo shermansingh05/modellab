@@ -1,0 +1,7 @@
+name: a-refusal-parent-vs-abliterated
+family: A
+defenders: [qwen3-8b-ollama, qwen3-8b-abliterated-ollama]
+guardrails: [none]
+kinds: [refusal]
+trials: 1
+generation: { temperature: 0.0, top_p: 1.0, max_tokens: 200, seed: 0, thinking: false, timeout_s: 180 }

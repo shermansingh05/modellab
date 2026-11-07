@@ -1,0 +1,5 @@
+# Runs with no model weights. Fixtures validate the pipeline and say nothing about real models.
+name: deterministic-demo
+defenders: [mock-obedient, mock-cautious]
+guardrails: [none, prompt_only, input_classifier, output_classifier, tool_policy, layered]
+trials: 1

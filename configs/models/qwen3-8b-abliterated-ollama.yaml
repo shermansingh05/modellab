@@ -1,0 +1,18 @@
+id: qwen3-8b-abliterated-ollama
+display_name: Huihui Qwen3 8B abliterated v2 (Ollama)
+hf_repo: huihui-ai/Huihui-Qwen3-8B-abliterated-v2
+revision: 7d89db76029281fd8f3e6698a8e30738608105a9
+base_model: Qwen/Qwen3-8B
+family: qwen3
+parameter_count: 8190735360
+license: apache-2.0
+purpose: Modified variant for parent-vs-abliterated comparison in a sandbox.
+variant: abliterated
+quantization: gguf
+backend: ollama
+backend_model: huihui_ai/qwen3-abliterated:8b-v2
+chat_template_id: ollama-qwen3
+context_window: 8192
+hardware_requirements: { min_unified_memory_gb: 16 }
+trust:
+  note: "Third-party modification with refusal behavior removed. Its outputs are withheld from traces for disallowed requests by default."
