@@ -23,6 +23,7 @@
 ## Measurement limits
 
 - **Small samples.** 20 attack and 8 control scenarios, with 3 trials per cell, is not a benchmark of general model security.
+- **Some attacks come through the user.** The tool-misuse scenarios simulate a compromised or careless user directly requesting a prohibited action, so an agent complying with them isn't being tricked by hidden text.
 - **Explicit prompts.** Tasks and payloads name tools directly so results can be graded. Attacks in the wild are subtler, and these scenarios may overstate or understate real risk.
 - **Refusal detector.** It's a phrase match, and it misses soft refusals.
 - **Heuristic classifier.** It ignores quoted text so that discussing an attack isn't flagged, which an attacker could abuse by quoting a payload.

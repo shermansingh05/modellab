@@ -85,7 +85,12 @@
       "memory_bytes": "34359738368"
     },
     "trial_count_per_cell": 3,
-    "dataset_version": null
+    "dataset_version": null,
+    "regraded": {
+      "git_commit": "79dcc0ce3f37d8bbb26dd11cccd8edc95a12e145",
+      "reason": "calls to nonexistent tools and failed calls no longer count as unauthorized executions",
+      "trials_changed": 0
+    }
   },
   "fixture_only": false,
   "evaluations": [

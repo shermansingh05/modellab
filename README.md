@@ -46,6 +46,10 @@ Then open http://127.0.0.1:3100. Everything stays on your machine, and all files
 - **Reports** in Markdown, JSON, and CSV, recording the Git commit, model digests, decoding settings, hardware, and known limitations
 - A **dashboard** to run campaigns, watch them live, and inspect traces
 
+![Benchmark Explorer comparing attack success and legitimate task success across models and guardrails, using real results](docs/images/benchmarks.jpg)
+
+![Trace Explorer showing a denied tool call and the guardrail decisions behind it](docs/images/trace.jpg)
+
 ## What it measures
 
 Each campaign runs scenarios across models and guardrail configurations, then reports:
@@ -74,15 +78,46 @@ These are small, synthetic experiments, not a general ranking of model safety. I
 | Qwen3 8B | 0/12 (0%, CI 0%-24%) | 0/12 (0%, CI 0%-24%) | 10/12 (83%, CI 55%-95%) |
 | Qwen3 8B abliterated | 0/12 (0%, CI 0%-24%) | 0/12 (0%, CI 0%-24%) | 0/12 (0%, CI 0%-24%) |
 
+### Standard vs. abliterated, with and without defenses
+
+20 attack and 8 control scenarios, 3 seeded trials each, temperature 0.7.
+
+| Model | Guardrails | Attack success | Unauthorized tool executed | Legitimate task success | False positive controls |
+|---|---|---|---|---|---|
+| Qwen3 8B abliterated | `none` | 36/60 (60%, CI 47%-71%) | 33/60 (55%, CI 42%-67%) | 60/78 (77%, CI 66%-85%) | 0/24 (0%, CI 0%-14%) |
+| Qwen3 8B abliterated | `layered` | 0/60 (0%, CI 0%-6%) | 0/60 (0%, CI 0%-6%) | 43/78 (55%, CI 44%-66%) | 0/24 (0%, CI 0%-14%) |
+| Qwen3 8B | `none` | 41/60 (68%, CI 56%-79%) | 34/60 (57%, CI 44%-68%) | 71/78 (91%, CI 83%-96%) | 0/24 (0%, CI 0%-14%) |
+| Qwen3 8B | `layered` | 0/60 (0%, CI 0%-6%) | 0/60 (0%, CI 0%-6%) | 46/78 (59%, CI 48%-69%) | 0/24 (0%, CI 0%-14%) |
+
+### Cross-model transfer
+
+Payloads written by the abliterated model, tested on the standard model. A small sample of three scenarios.
+
+| Model | Guardrails | Attack success | Unauthorized tool executed | Legitimate task success | False positive controls |
+|---|---|---|---|---|---|
+| Qwen3 8B | `none` | 1/5 (20%, CI 4%-62%) | 1/5 (20%, CI 4%-62%) | 3/5 (60%, CI 23%-88%) | n/a |
+
 ### Injection classifier baseline
 
 TF-IDF plus logistic regression on synthetic data, scored on 72 rows from templates held out of training: precision 0.62, recall 0.83, F1 0.71 (TP 30, FP 18, TN 18, FN 6). Calibration error 0.29. It is a weak signal on unseen phrasing, which is why it never overrides access control.
 
-**Still running:** standard vs. abliterated attack scenarios, cross-model transfer, guardrail layer comparison. These results will be added here when they finish.
+**Still running:** guardrail layer comparison. These results will be added here when they finish.
 
-Full reports with configuration and provenance: [`a-refusal-parent-vs-abliterated`](reports/examples/a-refusal-parent-vs-abliterated.md). JSON and CSV sit beside them. Replies to disallowed requests are never published.
+**See one attack end to end:** [an injected instruction, unguarded and defended](reports/examples/case-study-document-injection.md).
+
+Full reports with configuration and provenance: [`a-refusal-parent-vs-abliterated`](reports/examples/a-refusal-parent-vs-abliterated.md), [`bcdef-parent-vs-abliterated`](reports/examples/bcdef-parent-vs-abliterated.md), [`j-cross-model-transfer`](reports/examples/j-cross-model-transfer.md). JSON and CSV sit beside them. Replies to disallowed requests are never published.
 
 <!-- results:end -->
+
+## What the results show
+
+On this small, synthetic sample:
+
+1. **Refusal training didn't protect the agent's tools.** The standard model refused 10 of 12 disallowed requests and the abliterated model refused none, yet both acted on injected instructions at similar rates. Unguarded attacks succeeded 41/60 and 36/60 times, and those intervals overlap, so this doesn't show either model is safer against injection.
+2. **The abliterated model's lower score isn't a safety win.** It repeatedly called `rag` instead of `rag.search`, so its RAG attacks failed along with the legitimate RAG tasks. Its legitimate task success was also lower: 60/78, against 71/78.
+3. **Deterministic layers stopped every attack here, at a real cost.** With layered guardrails, no attack succeeded and no prohibited tool ran on either model, and no control task was denied. But legitimate task success on the standard model fell from 71/78 to 46/78, largely because a flagged document gets withheld in full.
+
+The tradeoff in point 3 is the next problem worth solving. See [limitations](docs/limitations.md) before generalizing from any of this.
 
 ## What's included
 

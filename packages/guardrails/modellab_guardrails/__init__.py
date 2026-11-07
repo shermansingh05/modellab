@@ -74,8 +74,9 @@ class HeuristicInjectionClassifier:
 
     def check(self, ctx: GuardContext):
         score, hits = injection_score(ctx.text or "")
-        decision = Decision.deny if score >= self.threshold else Decision.allow
-        return decision, "injection_signal" if hits else "clean", score, hits
+        if score >= self.threshold:
+            return Decision.deny, "injection_signal", score, hits
+        return Decision.allow, "below_threshold" if hits else "clean", score, hits
 
 
 class TrainedInjectionClassifier:
