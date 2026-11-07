@@ -6,7 +6,7 @@ jobs:
   benchmark:
     runs-on: [self-hosted, gpu]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: uv sync --frozen
       - run: uv run modellab doctor
       - run: uv run modellab eval run configs/experiments/h_guardrail_layers.yaml
