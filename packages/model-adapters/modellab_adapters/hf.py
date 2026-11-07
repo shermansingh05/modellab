@@ -46,7 +46,7 @@ class TransformersAdapter(ModelAdapter):
         return self.tokenizer(prompt, return_tensors="pt").to(self.device)
 
     def _kwargs(self, config: GenerationConfig) -> dict:
-        kw = dict(max_new_tokens=config.max_tokens, pad_token_id=self.tokenizer.eos_token_id)
+        kw = {"max_new_tokens": config.max_tokens, "pad_token_id": self.tokenizer.eos_token_id}
         if config.temperature > 0:
             kw.update(do_sample=True, temperature=config.temperature, top_p=config.top_p)
         else:
@@ -69,7 +69,7 @@ class TransformersAdapter(ModelAdapter):
         def work() -> None:
             try:
                 self.model.generate(**inputs, streamer=streamer, **self._kwargs(config))
-            except Exception as exc:  # noqa: BLE001 - reported on the result
+            except Exception as exc:
                 errors.append(exc)
                 streamer.end()
 

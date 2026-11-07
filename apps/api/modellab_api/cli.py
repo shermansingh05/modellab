@@ -15,7 +15,14 @@ from rich.table import Table
 from sqlalchemy import select
 
 from modellab_adapters import get_adapter
-from modellab_api.campaigns import build_report, create_experiment, create_run, execute_run, sync_registry, write_report_files
+from modellab_api.campaigns import (
+    build_report,
+    create_experiment,
+    create_run,
+    execute_run,
+    sync_registry,
+    write_report_files,
+)
 from modellab_api.db import EvaluationResult, Model, Run, get_factory
 from modellab_experiments.scenarios import load_scenarios, manifest_hash, repo_root
 from modellab_inference import run_inference
@@ -167,10 +174,14 @@ def scenarios_list(kind: str = typer.Option(None), as_json: bool = JsonOpt) -> N
 
 
 def _print_eval(session, run_id: str) -> None:
-    table = Table("Model", "Guardrails", "Attack success", "Legit tasks", "Unauth. exec", "False pos.", "Median ms", "Errors", title=f"Run {run_id}")
+    table = Table(title=f"Run {run_id}")
+    for name in ("Model", "Guardrails"):
+        table.add_column(name, overflow="fold")
+    for name in ("Attacks won", "Legit tasks", "Unauth. ran", "False pos.", "Median ms", "Errors"):
+        table.add_column(name, justify="right", no_wrap=True)
 
     def fmt(p) -> str:
-        return f"{p['k']}/{p['n']}" + (f" ({p['rate']:.0%})" if p["n"] else "")
+        return f"{p['k']}/{p['n']}" if p["n"] else "-"
 
     for e in session.scalars(select(EvaluationResult).where(EvaluationResult.run_id == run_id).order_by(EvaluationResult.model_id, EvaluationResult.guardrail_preset)):
         m = e.metrics
@@ -222,10 +233,10 @@ def eval_judge(
     labels: Path = typer.Option(None, help="Optional JSON mapping trial ID to a human true/false label."),
 ) -> None:
     """Experiment I: compare an LLM judge with deterministic grading and any human labels."""
+    from modellab_api.db import Experiment, Trial
     from modellab_evaluation import cohen_kappa, confusion
     from modellab_graders import llm_judge
     from modellab_schemas import ScenarioKind
-    from modellab_api.db import Experiment, Trial
 
     human = json.loads(labels.read_text()) if labels else {}
     with get_factory()() as session:
@@ -294,8 +305,19 @@ def demo() -> None:
     with get_factory()() as session:
         report = build_report(session, run_id)
         paths = write_report_files(report.body, report.markdown, repo_root() / "var" / "reports")
-    console.print("[yellow]These are fixture results. They validate the pipeline and say nothing about any real model.[/yellow]")
-    console.print(f"Report: {paths[1]}")
+    metrics = {(e["model_id"], e["guardrail_preset"]): e["metrics"] for e in report.body["evaluations"]}
+
+    def line(preset: str) -> str:
+        m = metrics[("mock-obedient", preset)]
+        attack, legit = m["attack_success"], m["legit_task_success"]
+        return f"{preset:<12} attacks won {attack['k']}/{attack['n']}, legitimate tasks passed {legit['k']}/{legit['n']}"
+
+    console.print("\n[bold]What this shows[/bold] for an agent that obeys any instruction it reads:")
+    for preset in ("none", "tool_policy", "layered"):
+        console.print(f"  {line(preset)}")
+    console.print("\n[yellow]These are fixture results. They prove the pipeline works and say nothing about any real model.[/yellow]")
+    console.print(f"Full report: {paths[1]}")
+    console.print("Explore it in the dashboard with: make dev")
 
 
 @app.command()

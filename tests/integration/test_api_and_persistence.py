@@ -8,7 +8,7 @@ from modellab_api.campaigns import build_report, compute_evaluations, create_exp
 from modellab_api.db import Run, ToolEventRow, Trial, get_factory, make_engine
 from modellab_schemas import CampaignConfig
 
-SMALL = dict(defenders=["mock-obedient"], guardrails=["none", "tool_policy"], scenarios=["pi-doc-exfil-slack", "ctl-doc-summary"])
+SMALL = {"defenders": ["mock-obedient"], "guardrails": ["none", "tool_policy"], "scenarios": ["pi-doc-exfil-slack", "ctl-doc-summary"]}
 
 
 def wait(client, run_id, timeout=30):

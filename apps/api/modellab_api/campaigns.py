@@ -1,6 +1,7 @@
 """Campaign execution: expands the trial matrix, persists evidence, and computes metrics from it."""
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import platform
@@ -14,8 +15,20 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from modellab_adapters import get_adapter
 from modellab_api.db import (
-    CampaignConfigRow, EvaluationResult, Experiment, GeneratedPayload, GuardrailDecisionRow, InferenceEvent, Model,
-    ModelRevision, Run, ScenarioSuite, ScenarioVersion, ToolEventRow, Trial, now,
+    CampaignConfigRow,
+    EvaluationResult,
+    Experiment,
+    GeneratedPayload,
+    GuardrailDecisionRow,
+    InferenceEvent,
+    Model,
+    ModelRevision,
+    Run,
+    ScenarioSuite,
+    ScenarioVersion,
+    ToolEventRow,
+    Trial,
+    now,
 )
 from modellab_evaluation import aggregate_trials
 from modellab_experiments.adversarial import generate_candidates
@@ -42,10 +55,8 @@ def hardware_details() -> dict:
     details = {"system": platform.system(), "machine": platform.machine(), "python": platform.python_version()}
     if platform.system() == "Darwin":
         for key, name in (("machdep.cpu.brand_string", "cpu"), ("hw.memsize", "memory_bytes")):
-            try:
+            with contextlib.suppress(subprocess.CalledProcessError, FileNotFoundError):
                 details[name] = subprocess.check_output(["sysctl", "-n", key], text=True).strip()
-            except (subprocess.CalledProcessError, FileNotFoundError):
-                pass
     return details
 
 
@@ -118,7 +129,7 @@ def create_run(session: Session, experiment_id: str) -> Run:
 
 def load_trained_classifier():
     from modellab_guardrails import TrainedInjectionClassifier
-    from modellab_training import load_scorer, latest_classifier_path
+    from modellab_training import latest_classifier_path, load_scorer
 
     path = latest_classifier_path()
     if path is None:
@@ -234,7 +245,7 @@ def execute_run(factory: sessionmaker, run_id: str) -> None:
             run.provenance = _provenance(session, config, run)
             session.commit()
             _execute(session, run, config)
-        except Exception as exc:  # noqa: BLE001 - a run's failure is data, stored on the run
+        except Exception as exc:
             session.rollback()
             run = session.get(Run, run_id)
             run.status, run.error, run.finished_at = "failed", redact(f"{type(exc).__name__}: {exc}"), now()
@@ -326,10 +337,8 @@ def submit_run(factory: sessionmaker, run_id: str) -> None:
         return
 
     def work() -> None:
-        try:
+        with contextlib.suppress(Exception):
             execute_run(factory, run_id)
-        except Exception:  # noqa: BLE001 - already recorded on the run row
-            pass
 
     thread = threading.Thread(target=work, name=f"run-{run_id}", daemon=True)
     _threads[run_id] = thread

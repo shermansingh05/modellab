@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import re
 import time
+import zlib
 
 from modellab_adapters.base import ModelAdapter
 from modellab_schemas import GenerationConfig, InferenceResult, Message
@@ -54,7 +55,7 @@ class MockAdapter(ModelAdapter):
         return f"Done. {results}".strip() if results else "Here is a direct answer to your request."
 
     def tokenize(self, text: str) -> list[int]:
-        return [hash(w) % 50257 for w in text.split()]
+        return [zlib.crc32(w.encode()) % 50257 for w in text.split()]  # Stable across processes, unlike hash().
 
     def health_check(self) -> dict:
         return {"ok": True, "backend": "mock", "detail": f"deterministic fixture ({self.persona})"}

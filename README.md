@@ -9,16 +9,31 @@ It's built for security engineers, AI red teams, and researchers evaluating syst
 
 ## Try it in two minutes
 
-No GPU or model download needed. The demo uses deterministic test fixtures.
+You need [uv](https://docs.astral.sh/uv/getting-started/installation/) and Git. No GPU, API key, or model download. The demo uses deterministic test fixtures.
 
 ```bash
 git clone https://github.com/shermansingh05/modellab.git
 cd modellab
-uv sync
 uv run modellab demo
 ```
 
-Fixture results check that the pipeline works. They say nothing about any real model.
+It runs 20 attacks and 8 legitimate-task controls against each defense, then prints a table like this for an agent that obeys any instruction it reads:
+
+```text
+none         attacks won 20/20, legitimate tasks passed 26/26
+tool_policy  attacks won 1/20, legitimate tasks passed 26/26
+layered      attacks won 0/20, legitimate tasks passed 15/26
+```
+
+Those are fixture results. They prove the pipeline works and say nothing about any real model. They also show the tradeoff this project measures: the layered defense stops everything, but withholding whole documents costs utility.
+
+To explore it in the dashboard, you also need Node.js 20 or newer:
+
+```bash
+make dev
+```
+
+Then open http://127.0.0.1:3100. Everything stays on your machine, and all files land in the ignored `var/` folder.
 
 ## Security audit
 
@@ -93,21 +108,6 @@ uv run modellab doctor
 uv run modellab models pull qwen3-8b-ollama
 uv run modellab eval run configs/experiments/h_guardrail_layers.yaml
 ```
-
-## Run the dashboard
-
-```bash
-make setup
-make api
-```
-
-Then, in a second terminal:
-
-```bash
-make web
-```
-
-Open http://127.0.0.1:3100. Both services stay on loopback, so keep them that way.
 
 ## Common commands
 

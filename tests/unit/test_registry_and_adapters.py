@@ -10,7 +10,7 @@ from modellab_experiments.scenarios import load_model_configs
 from modellab_schemas import GenerationConfig, Message, ModelEntry
 
 SHA = "a" * 40
-BASE = dict(id="x", display_name="X", family="f", backend="transformers", hf_repo="o/r", revision=SHA)
+BASE = {"id": "x", "display_name": "X", "family": "f", "backend": "transformers", "hf_repo": "o/r", "revision": SHA}
 
 
 def test_initial_models_are_registered_and_pinned():

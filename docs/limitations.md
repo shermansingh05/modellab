@@ -7,7 +7,6 @@
 - **Encoder classifier** (`train_encoder`). Needs the `ml` extra and hasn't been run.
 - **Dramatiq worker.** Written, but Redis wasn't available on the development machine. Runs were tested with the in-process worker.
 - **`docker-compose.yml` and the GPU workflow.** Docker wasn't available. PostgreSQL itself was tested against a real local cluster.
-- **GitHub Actions CI.** Written to match local commands. Its first real run happens on push.
 
 ## Not implemented
 

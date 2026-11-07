@@ -1,9 +1,12 @@
-.PHONY: setup demo test lint api web real audit
+.PHONY: setup dev demo test lint api web real audit smoke
 
 setup:
 	uv sync
 	cd apps/web && npm ci
 	@[ -f .env ] || (printf 'MODELLAB_ADMIN_TOKEN=%s\n' "$$(openssl rand -hex 24)" > .env && chmod 600 .env)
+
+dev:
+	bash scripts/dev.sh
 
 demo:
 	uv run modellab demo
@@ -27,3 +30,6 @@ real:
 
 audit:
 	bash scripts/audit.sh
+
+smoke:
+	bash scripts/smoke.sh

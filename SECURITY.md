@@ -2,7 +2,7 @@
 
 ModelLab is research software for one trusted operator on their own machine. It's not a production security control.
 
-**Report a vulnerability** through GitHub's private vulnerability reporting on this repository, not in a public issue. Sandbox escapes, redaction failures, and authentication bypasses are especially useful.
+**Report a vulnerability** by opening a GitHub issue that asks for a private contact, with no technical details in it. Sandbox escapes, redaction failures, and authentication bypasses are especially useful.
 
 **Run it safely**
 - Keep the API and dashboard on loopback, which is the default. Don't expose them to a network.

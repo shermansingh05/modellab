@@ -7,14 +7,22 @@ import time
 from dataclasses import dataclass, field
 
 from modellab_adapters import ModelAdapter
-from modellab_guardrails import PROMPT_DEFENSE, GuardContext, GuardrailSet
 from modellab_graders import GradeResult, grade
+from modellab_guardrails import PROMPT_DEFENSE, GuardContext, GuardrailSet
 from modellab_inference import run_inference
 from modellab_observability import tracer
 from modellab_sandbox import Environment
 from modellab_schemas import (
-    AttackSurface, Decision, GenerationConfig, GuardrailDecision, InferenceResult, Message, Scenario, ScenarioKind,
-    ToolCall, ToolEvent,
+    AttackSurface,
+    Decision,
+    GenerationConfig,
+    GuardrailDecision,
+    InferenceResult,
+    Message,
+    Scenario,
+    ScenarioKind,
+    ToolCall,
+    ToolEvent,
 )
 
 JSON_BLOCK = re.compile(r"\{.*\}", re.S)

@@ -132,7 +132,7 @@ def write_dataset(rows: list[dict], root: Path | None = None) -> dict:
 
 def _per_category(rows: list[dict], preds: list[bool]) -> dict:
     out: dict[str, dict] = {}
-    for r, p in zip(rows, preds):
+    for r, p in zip(rows, preds, strict=False):
         c = out.setdefault(r["category"], {"n": 0, "false_positives": 0, "false_negatives": 0})
         c["n"] += 1
         if p and not r["label"]:
@@ -200,7 +200,7 @@ def train_baseline(out_dir: Path | None = None, epochs: int = 50, seed: int = 7)
     return {
         "kind": "tfidf-logreg", "dataset": manifest, "split_sizes": {k: len(v) for k, v in splits.items()},
         "leakage_checks": near_duplicate_report(splits), "config": {"ngram_range": [1, 2], "alpha": alpha, "epochs": epochs, "seed": seed, "selected_on": "validation loss"},
-        "loss_curve": curve, "test_confusion": confusion(zip(labels, preds)).as_dict(), "by_category": _per_category(splits["test"], preds),
+        "loss_curve": curve, "test_confusion": confusion(zip(labels, preds, strict=False)).as_dict(), "by_category": _per_category(splits["test"], preds),
         "calibration": calibration(probs, labels), "latency_ms": {"median": percentile(latencies, 50), "p95": percentile(latencies, 95)},
         "artifact_path": _display_path(path), "artifact_sha256": digest, "hardware": "cpu",
     }
@@ -248,7 +248,7 @@ def train_encoder(model_name: str = "sentence-transformers/all-MiniLM-L6-v2", se
     probs = clf.predict_proba(encoder.encode([r["text"] for r in splits["test"]]))[:, 1].tolist()
     labels = [bool(r["label"]) for r in splits["test"]]
     preds = [p >= 0.5 for p in probs]
-    return {"kind": "encoder-logreg", "encoder": model_name, "test_confusion": confusion(zip(labels, preds)).as_dict(),
+    return {"kind": "encoder-logreg", "encoder": model_name, "test_confusion": confusion(zip(labels, preds, strict=False)).as_dict(),
             "by_category": _per_category(splits["test"], preds), "calibration": calibration(probs, labels)}
 
 

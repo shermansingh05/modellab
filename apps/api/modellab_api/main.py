@@ -8,40 +8,50 @@ import platform
 import shutil
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
-from typing import Any, Generic, TypeVar
+from typing import Any
 
 import yaml
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import PlainTextResponse, StreamingResponse
-from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from modellab_adapters import get_adapter
 from modellab_api.auth import require_admin
 from modellab_api.campaigns import (
-    TERMINAL, build_report, create_experiment, create_run, hardware_details, mark_interrupted,
-    submit_run, sync_registry,
+    TERMINAL,
+    build_report,
+    create_experiment,
+    create_run,
+    hardware_details,
+    mark_interrupted,
+    submit_run,
+    sync_registry,
 )
 from modellab_api.db import (
-    Artifact, CampaignConfigRow, EvaluationResult, Experiment, GuardrailDecisionRow, InferenceEvent, Model, ModelRevision,
-    ResearchReport, Run, ToolEventRow, TrainingJob, Trial, get_factory, now,
+    Artifact,
+    CampaignConfigRow,
+    EvaluationResult,
+    Experiment,
+    GuardrailDecisionRow,
+    InferenceEvent,
+    Model,
+    ModelRevision,
+    ResearchReport,
+    Run,
+    ToolEventRow,
+    TrainingJob,
+    Trial,
+    get_factory,
+    now,
 )
 from modellab_experiments.scenarios import load_scenarios, manifest_hash
 from modellab_guardrails import GUARDRAIL_PRESETS, build_guardrails
 from modellab_inference import run_inference
 from modellab_observability import redact
 from modellab_schemas import Backend, CampaignConfig, GenerationConfig, Message, ModelEntry, Scenario
-
-T = TypeVar("T")
-
-
-class Page(BaseModel, Generic[T]):
-    items: list[T]
-    total: int
-    limit: int
-    offset: int
 
 
 def session_dep() -> Iterator[Session]:
@@ -451,7 +461,7 @@ def run_training(job_id: str, req: TrainingRequest) -> None:
                 session.flush()
                 job.artifact_id = artifact.id
             job.metrics, job.status = metrics, "completed"
-        except Exception as exc:  # noqa: BLE001 - stored on the job
+        except Exception as exc:
             job.status, job.error = "failed", redact(f"{type(exc).__name__}: {exc}")
         job.finished_at = now()
         session.commit()

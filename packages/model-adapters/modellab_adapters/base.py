@@ -49,10 +49,10 @@ class ModelAdapter(abc.ABC):
         return {"peak_rss_mb": peak_rss_mb(), "hardware": hardware_label()}
 
     def _result(self, config: GenerationConfig, **kw) -> InferenceResult:
-        fields = dict(
-            model_id=self.entry.id, backend=self.entry.backend.value, revision=self.entry.revision,
-            quantization=self.entry.quantization, hardware=hardware_label(),
-            template_version=self.entry.chat_template_id, config=config, peak_rss_mb=peak_rss_mb(),
-        )
+        fields = {
+            "model_id": self.entry.id, "backend": self.entry.backend.value, "revision": self.entry.revision,
+            "quantization": self.entry.quantization, "hardware": hardware_label(),
+            "template_version": self.entry.chat_template_id, "config": config, "peak_rss_mb": peak_rss_mb(),
+        }
         fields.update(kw)
         return InferenceResult(**fields)

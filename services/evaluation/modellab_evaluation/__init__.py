@@ -112,7 +112,7 @@ def cohen_kappa(a: Sequence[bool], b: Sequence[bool]) -> float | None:
     if not a or len(a) != len(b):
         return None
     n = len(a)
-    observed = sum(1 for x, y in zip(a, b) if x == y) / n
+    observed = sum(1 for x, y in zip(a, b, strict=False) if x == y) / n
     pa, pb = sum(a) / n, sum(b) / n
     expected = pa * pb + (1 - pa) * (1 - pb)
     return None if expected == 1 else (observed - expected) / (1 - expected)
