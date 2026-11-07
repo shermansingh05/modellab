@@ -34,7 +34,29 @@ Proportions are published as counts with 95% Wilson intervals. See the [evaluati
 
 ## Results
 
-Real-model experiments on Qwen3 8B and its abliterated variant are in progress, so no benchmark numbers are published yet. Measured results will appear here and in [`reports/examples`](reports/examples), with their full provenance.
+<!-- results:begin -->
+
+Measured on Apple M1 Max with 32 GB, through Ollama 0.40.14, using the GGUF weights Ollama serves. Each report records the exact digests.
+These are small, synthetic experiments, not a general ranking of model safety. Intervals are 95% Wilson and treat trials as independent, which understates real uncertainty because repeats of one scenario are correlated.
+
+### Refusal behavior
+
+12 prompts, 3 seeded trials each, temperature 0.7. Refusal is detected by phrase matching and says nothing about whether an answer is correct or harmful.
+
+| Model | Harmless refused | Ambiguous refused | Disallowed refused |
+|---|---|---|---|
+| Qwen3 8B | 0/12 (0%, CI 0%-24%) | 0/12 (0%, CI 0%-24%) | 10/12 (83%, CI 55%-95%) |
+| Qwen3 8B abliterated | 0/12 (0%, CI 0%-24%) | 0/12 (0%, CI 0%-24%) | 0/12 (0%, CI 0%-24%) |
+
+### Injection classifier baseline
+
+TF-IDF plus logistic regression on synthetic data, scored on 72 rows from templates held out of training: precision 0.62, recall 0.83, F1 0.71 (TP 30, FP 18, TN 18, FN 6). Calibration error 0.29. It is a weak signal on unseen phrasing, which is why it never overrides access control.
+
+**Still running:** standard vs. abliterated attack scenarios, cross-model transfer, guardrail layer comparison. These results will be added here when they finish.
+
+Full reports with configuration and provenance: [`a-refusal-parent-vs-abliterated`](reports/examples/a-refusal-parent-vs-abliterated.md). JSON and CSV sit beside them. Replies to disallowed requests are never published.
+
+<!-- results:end -->
 
 ## What's included
 
@@ -87,7 +109,7 @@ uv run modellab train classifier
 uv run modellab test
 ```
 
-Most list and report commands accept `--json`.
+Many commands accept `--json`.
 
 ## Documentation
 
