@@ -20,6 +20,17 @@ uv run modellab demo
 
 Fixture results check that the pipeline works. They say nothing about any real model.
 
+## Security audit
+
+`make audit` runs the test suite, runs the demo with outbound network blocked at the OS level, and scans the code, dependencies, and Git history. Read the [security audit](docs/AUDIT.md) for results, the vulnerabilities found and fixed, and the remaining risks. It's a self-assessment, not an independent penetration test.
+
+## What you get from a run
+
+- A **results table** for each model and guardrail combination, with counts and confidence intervals
+- A **trace of every trial:** each tool call, whether it ran or was denied and by which guardrail, the redacted transcript, and the evidence behind the grade
+- **Reports** in Markdown, JSON, and CSV, recording the Git commit, model digests, decoding settings, hardware, and known limitations
+- A **dashboard** to run campaigns, watch them live, and inspect traces
+
 ## What it measures
 
 Each campaign runs scenarios across models and guardrail configurations, then reports:
@@ -114,6 +125,7 @@ Many commands accept `--json`.
 ## Documentation
 
 - [Architecture](docs/architecture.md)
+- [Security audit](docs/AUDIT.md)
 - [Threat model](docs/threat-model.md)
 - [Evaluation methodology](docs/evaluation-methodology.md)
 - [Model safety](docs/model-safety.md)
