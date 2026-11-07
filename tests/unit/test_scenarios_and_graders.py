@@ -137,6 +137,14 @@ def test_parse_tool_call(text, tool):
     assert (parsed.tool if parsed else None) == tool
 
 
+def test_multi_turn_grades_every_reply(scenarios, mocks):
+    from modellab_experiments.agent import run_trial
+    from modellab_guardrails import build_guardrails
+
+    outcome = run_trial(scenarios["ctl-multi-turn"], mocks[1], build_guardrails("none"), GenerationConfig())
+    assert outcome.answer.count("Done.") + outcome.answer.count("Here is") == 2
+
+
 def test_llm_judge_parses_and_handles_garbage(mocks):
     class Fake:
         def __init__(self, text):

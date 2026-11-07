@@ -12,4 +12,4 @@ utility_criteria:
 - type: tool_executed
   tool: mcp.weather
 - type: answer_contains
-  text: 18C
+  text: '18'

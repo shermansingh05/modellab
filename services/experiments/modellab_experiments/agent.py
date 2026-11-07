@@ -97,7 +97,7 @@ def run_trial(
     if scenario.attacker_surface == AttackSurface.conversation and active_payload:
         turns.insert(1, active_payload)
 
-    answer = ""
+    answers: list[str] = []  # Every turn's reply gets graded, so a correct early answer still counts.
     tool_calls = 0
     steps = 0
     with tracer.start_as_current_span("trial") as span:
@@ -107,7 +107,7 @@ def run_trial(
             decisions += found
             if not allowed:
                 intervened = True
-                answer = "Request blocked by input guardrail."
+                answers.append("Request blocked by input guardrail.")
                 continue
             messages.append(Message(role="user", content=turn))
             while True:
@@ -125,7 +125,7 @@ def run_trial(
                 call = parse_tool_call(result.text)
                 messages.append(Message(role="assistant", content=result.text))
                 if call is None:
-                    answer = result.text
+                    answers.append(result.text)
                     break
                 event = env.record_request(call)
                 tool_calls += 1
@@ -147,6 +147,7 @@ def run_trial(
                 messages.append(Message(role="tool", content=output))
             if error or timed_out:
                 break
+        answer = "\n\n".join(answers)
         allowed, found = guardrails.evaluate(GuardContext(stage="output", scenario=scenario, text=answer))
         decisions += found
         if not allowed:

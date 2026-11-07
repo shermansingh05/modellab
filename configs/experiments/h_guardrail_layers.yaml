@@ -1,7 +1,7 @@
 name: h-guardrail-layers
 family: H
 defenders: [qwen3-8b-ollama]
-guardrails: [none, prompt_only, input_classifier, output_classifier, tool_policy, layered]
+guardrails: [none, prompt_only, input_classifier, trained_classifier, output_classifier, tool_policy, layered]
 kinds: [attack, benign]
 trials: 3
 generation: { temperature: 0.7, top_p: 1.0, max_tokens: 400, seed: 0, thinking: false, timeout_s: 180 }

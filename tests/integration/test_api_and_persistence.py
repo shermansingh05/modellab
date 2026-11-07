@@ -204,3 +204,25 @@ def test_real_ollama_inference(mocks):
     entry = next(m for m in load_model_configs() if m.id == "qwen3-8b-ollama")
     r = get_adapter(entry).generate([Message(role="user", content="Say OK.")], GenerationConfig(max_tokens=20))
     assert r.error is None and r.text and r.completion_tokens and r.backend_version
+
+
+def test_only_silent_runs_are_marked_interrupted():
+    from datetime import timedelta
+
+    from modellab_api.campaigns import mark_interrupted
+    from modellab_api.db import now
+
+    factory = get_factory()
+    config = CampaignConfig(name="stale", defenders=["mock-obedient"], scenarios=["ctl-doc-summary"])
+    with factory() as s:
+        experiment = create_experiment(s, config)
+        live, dead = create_run(s, experiment.id), create_run(s, experiment.id)
+        live.status, live.started_at = "running", now()
+        dead.status, dead.started_at = "running", now() - timedelta(hours=2)
+        s.commit()
+        live_id, dead_id = live.id, dead.id
+    mark_interrupted(factory)
+    with factory() as s:
+        assert s.get(Run, live_id).status == "running" and s.get(Run, dead_id).status == "interrupted"
+        s.get(Run, live_id).status = "completed"
+        s.commit()

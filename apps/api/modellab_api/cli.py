@@ -215,6 +215,43 @@ def eval_compare(run_ids: list[str], as_json: bool = JsonOpt) -> None:
             _print_eval(session, r)
 
 
+@eval_app.command("judge")
+def eval_judge(
+    experiment: str = typer.Argument(..., help="Experiment name. Uses its latest completed run."),
+    judge_model: str = typer.Option(..., "--model"), limit: int = 60,
+    labels: Path = typer.Option(None, help="Optional JSON mapping trial ID to a human true/false label."),
+) -> None:
+    """Experiment I: compare an LLM judge with deterministic grading and any human labels."""
+    from modellab_evaluation import cohen_kappa, confusion
+    from modellab_graders import llm_judge
+    from modellab_schemas import ScenarioKind
+    from modellab_api.db import Experiment, Trial
+
+    human = json.loads(labels.read_text()) if labels else {}
+    with get_factory()() as session:
+        sync_registry(session)
+        adapter = get_adapter(_entry(session, judge_model))
+        run = session.scalar(select(Run).join(Experiment, Run.experiment_id == Experiment.id).where(
+            Experiment.name == experiment, Run.status == "completed").order_by(Run.finished_at.desc()))
+        if run is None:
+            console.print(f"[red]No completed run for {experiment}.[/red]")
+            raise typer.Exit(1)
+        trials = session.scalars(select(Trial).where(Trial.run_id == run.id, Trial.kind == ScenarioKind.attack.value, Trial.status == "completed").order_by(Trial.key)).all()
+        step = max(len(trials) // limit, 1)
+        scenarios = load_scenarios()
+        rows = []
+        for t in trials[::step][:limit]:
+            transcript = "\n".join(f"{m['role']}: {m['content']}" for m in t.transcript if m["role"] != "system")
+            rows.append({"trial": t.id, "deterministic": bool(t.objective_achieved), "judge": llm_judge(adapter, scenarios[t.scenario_id].attacker_objective, transcript)})
+    usable = [r for r in rows if r["judge"] is not None]
+    result = {"run_id": run.id, "judge_model": judge_model, "sampled": len(rows), "unparseable": len(rows) - len(usable),
+              "against_deterministic": confusion((r["deterministic"], r["judge"]) for r in usable).as_dict(),
+              "kappa_vs_deterministic": cohen_kappa([r["deterministic"] for r in usable], [r["judge"] for r in usable]),
+              "human_labeled": sum(1 for r in usable if r["trial"] in human),
+              "kappa_vs_human": cohen_kappa([bool(human[r["trial"]]) for r in usable if r["trial"] in human], [r["judge"] for r in usable if r["trial"] in human]) if human else None}
+    _emit(result)
+
+
 @eval_app.command("report")
 def eval_report(run_id: str, out: Path = typer.Option(None, help="Directory for JSON, Markdown, and CSV.")) -> None:
     with get_factory()() as session:
@@ -225,7 +262,7 @@ def eval_report(run_id: str, out: Path = typer.Option(None, help="Directory for 
 
 
 @train_app.command("classifier")
-def train_classifier(kind: str = typer.Option("tfidf-logreg", help="tfidf-logreg or encoder-logreg"), epochs: int = 25, seed: int = 7, as_json: bool = JsonOpt) -> None:
+def train_classifier(kind: str = typer.Option("tfidf-logreg", help="tfidf-logreg or encoder-logreg"), epochs: int = 50, seed: int = 7, as_json: bool = JsonOpt) -> None:
     """Train an injection classifier and evaluate it on held-out templates."""
     from modellab_api.db import Artifact, TrainingJob, now
     from modellab_training import train_baseline, train_encoder

@@ -9,6 +9,7 @@ from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from typing import Any, Generic, TypeVar
 
+import yaml
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -29,7 +30,7 @@ from modellab_experiments.scenarios import load_scenarios, manifest_hash
 from modellab_guardrails import GUARDRAIL_PRESETS, build_guardrails
 from modellab_inference import run_inference
 from modellab_observability import redact
-from modellab_schemas import Backend, CampaignConfig, GenerationConfig, Message, ModelEntry
+from modellab_schemas import Backend, CampaignConfig, GenerationConfig, Message, ModelEntry, Scenario
 
 T = TypeVar("T")
 
@@ -193,6 +194,23 @@ def scenarios(kind: str | None = None, family: str | None = None, limit: int = Q
     items = [s for s in load_scenarios().values() if (not kind or s.kind == kind) and (not family or s.family == family)]
     return {"items": [s.model_dump(mode="json") for s in items[offset:offset + limit]], "total": len(items), "limit": limit,
             "offset": offset, "manifest_hash": manifest_hash()}
+
+
+class ScenarioDraft(BaseModel):
+    yaml_text: str = Field(max_length=100_000)
+
+
+@app.post("/api/scenarios/validate")
+def validate_scenario(draft: ScenarioDraft) -> dict:
+    """Checks a draft against the schema. Nothing is saved: scenarios live in versioned YAML in the repository."""
+    try:
+        data = yaml.safe_load(draft.yaml_text)
+        scenario = Scenario.model_validate(data)
+    except yaml.YAMLError as exc:
+        return {"valid": False, "errors": [f"YAML: {exc}"]}
+    except ValidationError as exc:
+        return {"valid": False, "errors": [f"{'.'.join(map(str, e['loc']))}: {e['msg']}" for e in exc.errors()]}
+    return {"valid": True, "errors": [], "scenario": scenario.model_dump(mode="json")}
 
 
 @app.get("/api/guardrails")
@@ -408,7 +426,7 @@ def overview(session: Session = Depends(session_dep)) -> dict:
 # Training -------------------------------------------------------------------------------------------------------
 class TrainingRequest(BaseModel):
     kind: str = Field(default="tfidf-logreg", pattern="^(tfidf-logreg|encoder-logreg)$")
-    epochs: int = Field(default=25, gt=0, le=500)
+    epochs: int = Field(default=50, gt=0, le=500)
     seed: int = 7
 
 

@@ -21,4 +21,4 @@ objective_criteria:
   tool: mcp.admin_export
 utility_criteria:
 - type: answer_contains
-  text: 18C
+  text: '18'

@@ -6,9 +6,10 @@ import json
 import platform
 import subprocess
 import threading
+from datetime import UTC, timedelta
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from modellab_adapters import get_adapter
@@ -131,6 +132,15 @@ def _guardrails(preset: str):
     return build_guardrails(preset)
 
 
+def _dataset_version(config: CampaignConfig) -> str | None:
+    if "trained_classifier" not in config.guardrails:
+        return None
+    from modellab_training import DATASET_VERSION, latest_classifier_path
+
+    path = latest_classifier_path()
+    return f"{DATASET_VERSION} ({path.name})" if path else DATASET_VERSION
+
+
 def _provenance(session: Session, config: CampaignConfig, run: Run) -> dict:
     models = {}
     for mid in dict.fromkeys(config.defenders + ([config.attacker] if config.attacker else [])):
@@ -141,6 +151,8 @@ def _provenance(session: Session, config: CampaignConfig, run: Run) -> dict:
         models[mid] = {"repo": entry.hf_repo, "revision": entry.revision, "quantization": entry.quantization,
                        "backend": entry.backend.value, "backend_model": entry.backend_model,
                        "backend_version": health.get("version"), "artifact_digest": digest, "variant": entry.variant.value}
+        if health.get("ok") and entry.backend != Backend.mock:
+            session.get(Model, mid).download_status = "ready"
         if digest and not session.scalar(select(ModelRevision).where(
                 ModelRevision.model_id == mid, ModelRevision.artifact_hash == digest)):
             session.add(ModelRevision(model_id=mid, revision=entry.revision, artifact_hash=digest))
@@ -148,7 +160,8 @@ def _provenance(session: Session, config: CampaignConfig, run: Run) -> dict:
         "git_commit": git_commit(), "models": models, "scenario_manifest_hash": manifest_hash(),
         "guardrail_config_hashes": {p: _guardrails(p).config_hash() for p in config.guardrails},
         "decoding": config.generation.model_dump(mode="json"), "base_seed": config.base_seed,
-        "hardware": hardware_details(), "trial_count_per_cell": config.trials, "dataset_version": None,
+        "hardware": hardware_details(), "trial_count_per_cell": config.trials,
+        "dataset_version": _dataset_version(config),
     }
 
 
@@ -322,13 +335,24 @@ def submit_run(factory: sessionmaker, run_id: str) -> None:
     thread.start()
 
 
+STALE_AFTER = timedelta(minutes=15)  # Longer than any trial's wall-clock budget.
+
+
 def mark_interrupted(factory: sessionmaker) -> int:
-    """A run left 'running' at startup has no worker. Mark it, so it can be resumed rather than appear live."""
+    """Marks runs with no sign of life, so they can be resumed. The CLI or a worker may legitimately hold a run."""
+
+    def utc(value):
+        return value.replace(tzinfo=UTC) if value is not None and value.tzinfo is None else value
+
     with factory() as session:
-        stale = list(session.scalars(select(Run).where(Run.status == "running")))
-        stale = [r for r in stale if r.id not in _threads or not _threads[r.id].is_alive()]
-        for r in stale:
-            r.status = "interrupted"
+        stale = []
+        for run in session.scalars(select(Run).where(Run.status == "running")):
+            if run.id in _threads and _threads[run.id].is_alive():
+                continue
+            latest = session.scalar(select(func.max(Trial.finished_at)).where(Trial.run_id == run.id))
+            if now() - (utc(latest) or utc(run.started_at) or now()) > STALE_AFTER:
+                run.status = "interrupted"
+                stale.append(run.id)
         session.commit()
         return len(stale)
 

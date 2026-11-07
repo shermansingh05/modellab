@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+:root { color-scheme: dark; }
+html, body { background: #0b0e10; color: #e8ecef; font-size: 14px; }
+:focus-visible { outline: 2px solid #7cc4ff; outline-offset: 1px; }
+table { border-collapse: collapse; width: 100%; }
+th { text-align: left; font-weight: 500; color: #9aa6af; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; padding: 6px 8px; border-bottom: 1px solid #262e35; white-space: nowrap; }
+td { padding: 6px 8px; border-bottom: 1px solid #1a2026; vertical-align: top; }
+tr[data-click]:hover td { background: #1a2026; cursor: pointer; }
+select, input[type=text], input[type=number], textarea { background: #0b0e10; border: 1px solid #262e35; padding: 5px 8px; border-radius: 4px; color: #e8ecef; }

@@ -142,7 +142,7 @@ def _per_category(rows: list[dict], preds: list[bool]) -> dict:
     return out
 
 
-def train_baseline(out_dir: Path | None = None, epochs: int = 25, seed: int = 7) -> dict:
+def train_baseline(out_dir: Path | None = None, epochs: int = 50, seed: int = 7) -> dict:
     """TF-IDF plus logistic regression trained by SGD, which also yields a real loss curve."""
     import numpy as np
     from sklearn.feature_extraction.text import TfidfVectorizer
@@ -158,12 +158,18 @@ def train_baseline(out_dir: Path | None = None, epochs: int = 25, seed: int = 7)
     x_test = vectorizer.transform(r["text"] for r in splits["test"])
     y_train = np.array([r["label"] for r in splits["train"]])
     y_val = np.array([r["label"] for r in splits["validation"]])
-    clf = SGDClassifier(loss="log_loss", alpha=1e-4, random_state=seed)
-    curve = []
-    for epoch in range(epochs):
-        clf.partial_fit(x_train, y_train, classes=[0, 1])
-        curve.append({"epoch": epoch + 1, "train_loss": float(log_loss(y_train, clf.predict_proba(x_train), labels=[0, 1])),
-                      "val_loss": float(log_loss(y_val, clf.predict_proba(x_val), labels=[0, 1]))})
+    # Regularization is chosen on validation loss only. The test split is never used for tuning.
+    best = None
+    for alpha in (1e-2, 1e-3, 1e-4, 1e-5, 1e-6):
+        candidate = SGDClassifier(loss="log_loss", alpha=alpha, random_state=seed)
+        curve = []
+        for epoch in range(epochs):
+            candidate.partial_fit(x_train, y_train, classes=[0, 1])
+            curve.append({"epoch": epoch + 1, "train_loss": float(log_loss(y_train, candidate.predict_proba(x_train), labels=[0, 1])),
+                          "val_loss": float(log_loss(y_val, candidate.predict_proba(x_val), labels=[0, 1]))})
+        if best is None or curve[-1]["val_loss"] < best[2][-1]["val_loss"]:
+            best = (alpha, candidate, curve)
+    alpha, clf, curve = best
     probs = clf.predict_proba(x_test)[:, 1].tolist()
     labels = [bool(r["label"]) for r in splits["test"]]
     preds = [p >= 0.5 for p in probs]
@@ -177,17 +183,15 @@ def train_baseline(out_dir: Path | None = None, epochs: int = 25, seed: int = 7)
     path = out_dir / f"classifier-{DATASET_VERSION}-{digest[:12]}.json"
     path.write_text(text)
     scorer = load_scorer(path)
-    start = time.perf_counter()
     samples = [r["text"] for r in splits["test"]]
     latencies = []
     for s in samples:
         t0 = time.perf_counter()
         scorer(s)
         latencies.append((time.perf_counter() - t0) * 1000)
-    _ = start
     return {
         "kind": "tfidf-logreg", "dataset": manifest, "split_sizes": {k: len(v) for k, v in splits.items()},
-        "leakage_checks": near_duplicate_report(splits), "config": {"ngram_range": [1, 2], "alpha": 1e-4, "epochs": epochs, "seed": seed},
+        "leakage_checks": near_duplicate_report(splits), "config": {"ngram_range": [1, 2], "alpha": alpha, "epochs": epochs, "seed": seed, "selected_on": "validation loss"},
         "loss_curve": curve, "test_confusion": confusion(zip(labels, preds)).as_dict(), "by_category": _per_category(splits["test"], preds),
         "calibration": calibration(probs, labels), "latency_ms": {"median": percentile(latencies, 50), "p95": percentile(latencies, 95)},
         "artifact_path": str(path), "artifact_sha256": digest, "hardware": "cpu",
