@@ -1,5 +1,7 @@
 'use client';
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Badge, Card, Empty, Page } from '@/components/ui';
 import { useApi, when } from '@/lib/api';
 
@@ -21,7 +23,7 @@ export default function Reports() {
         </Card>
         {id && (
           <Card title="Report" right={<span className="flex gap-3 text-[13px]">{['json', 'markdown', 'csv'].map((f) => <a key={f} className="text-accent hover:underline" href={url(f)} download={`${id}.${f === 'markdown' ? 'md' : f}`}>{f.toUpperCase()}</a>)}</span>}>
-            <pre className="whitespace-pre-wrap break-words font-mono text-[12px] leading-relaxed">{typeof md.data === 'string' ? md.data : 'Loading...'}</pre>
+            {typeof md.data === 'string' ? <div className="report"><ReactMarkdown remarkPlugins={[remarkGfm]}>{md.data}</ReactMarkdown></div> : <p className="text-mute">Loading...</p>}
           </Card>
         )}
       </div>

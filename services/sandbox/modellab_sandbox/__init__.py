@@ -129,7 +129,8 @@ class Environment:
 
     def execute(self, event: ToolEvent) -> str:
         ok, text = self._execute(ToolCall(tool=event.tool, args=event.args))
-        event.executed, event.ok, event.result = True, ok, text
+        # A tool that doesn't exist never ran, whatever the model believes it called.
+        event.executed, event.ok, event.result = hasattr(self, "_t_" + event.tool.replace(".", "_")), ok, text
         if not ok:
             event.error = text
         return text

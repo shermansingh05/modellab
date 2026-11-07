@@ -11,6 +11,8 @@ updates:
     ignore:
       # TypeScript 7 fails the Next.js build.
       - { dependency-name: typescript, update-types: ["version-update:semver-major"] }
+      # Monaco 0.57's web workers don't load under Next's bundling, and it pulls in a vulnerable dompurify.
+      - { dependency-name: monaco-editor }
   - package-ecosystem: github-actions
     directory: "/"
     schedule: { interval: monthly }

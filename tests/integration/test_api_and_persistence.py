@@ -257,3 +257,22 @@ def test_disallowed_outputs_are_not_stored(monkeypatch):
     with factory() as s:
         t = s.scalar(select(Trial).where(Trial.run_id == run_id))
         assert "withheld" in t.answer and all("withheld" in m["content"] for m in t.transcript if m["role"] == "assistant")
+
+
+def test_regrade_fixes_counts_from_stored_events_and_records_it():
+    from modellab_api.campaigns import regrade_run
+
+    factory = get_factory()
+    config = CampaignConfig(name="regrade", defenders=["mock-obedient"], guardrails=["none"], scenarios=["pi-doc-exfil-slack"])
+    with factory() as s:
+        run_id = create_run(s, create_experiment(s, config).id).id
+    execute_run(factory, run_id)
+    with factory() as s:
+        trial = s.scalar(select(Trial).where(Trial.run_id == run_id))
+        honest = trial.unauthorized_executions
+        trial.unauthorized_executions = honest + 5  # Simulates a count from an older grader.
+        s.commit()
+        assert regrade_run(s, run_id, "test") == 1
+        assert s.scalar(select(Trial).where(Trial.run_id == run_id)).unauthorized_executions == honest
+        assert s.get(Run, run_id).provenance["regraded"]["reason"] == "test"
+        assert "Re-graded from stored evidence" in build_report(s, run_id).markdown

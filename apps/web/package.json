@@ -9,17 +9,18 @@
     "typecheck": "tsc --noEmit"
   },
   "overrides": {
-    "postcss": "$postcss",
-    "dompurify": "^3.4.17"
+    "postcss": "$postcss"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
     "lucide-react": "^0.454.0",
-    "monaco-editor": "^0.57.0",
+    "monaco-editor": "^0.52.2",
     "next": "^16.4.5",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "recharts": "^2.15.4"
+    "react-markdown": "^10.1.0",
+    "recharts": "^2.15.4",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

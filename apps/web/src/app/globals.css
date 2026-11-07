@@ -9,3 +9,13 @@ th { text-align: left; font-weight: 500; color: #9aa6af; font-size: 11px; text-t
 td { padding: 6px 8px; border-bottom: 1px solid #1a2026; vertical-align: top; }
 tr[data-click]:hover td { background: #1a2026; cursor: pointer; }
 select, input[type=text], input[type=number], textarea { background: #0b0e10; border: 1px solid #262e35; padding: 5px 8px; border-radius: 4px; color: #e8ecef; }
+
+.report { max-width: 1100px; line-height: 1.55; }
+.report h1 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+.report h2 { font-size: 14px; font-weight: 600; margin: 20px 0 8px; }
+.report h3 { font-size: 13px; font-weight: 600; margin: 14px 0 6px; color: #9aa6af; }
+.report p { margin: 6px 0; }
+.report ul { list-style: disc; padding-left: 18px; margin: 6px 0; }
+.report code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }
+.report blockquote { border-left: 2px solid #e8b84b; padding-left: 10px; color: #e8b84b; margin: 8px 0; }
+.report td { font-size: 12px; }

@@ -31,7 +31,7 @@ class MockAdapter(ModelAdapter):
         completion = len(text.split())
         return self._result(
             config, text=text, backend_version="mock-1", prompt_tokens=prompt_tokens, completion_tokens=completion,
-            wall_ms=wall, ttft_ms=wall, tokens_per_s=completion / max(wall / 1000, 1e-6),
+            wall_ms=wall,  # No throughput or first-token figures: a fixture has no meaningful speed to report.
         )
 
     def _respond(self, messages: list[Message]) -> str:

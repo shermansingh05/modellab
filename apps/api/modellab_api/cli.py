@@ -226,6 +226,15 @@ def eval_compare(run_ids: list[str], as_json: bool = JsonOpt) -> None:
             _print_eval(session, r)
 
 
+@eval_app.command("regrade")
+def eval_regrade(run_id: str, reason: str = typer.Option(..., help="Why, recorded in the report.")) -> None:
+    """Recompute execution counts from stored tool events, without rerunning any model."""
+    from modellab_api.campaigns import regrade_run
+
+    with get_factory()() as session:
+        console.print(f"{regrade_run(session, run_id, reason)} trials changed.")
+
+
 @eval_app.command("judge")
 def eval_judge(
     experiment: str = typer.Argument(..., help="Experiment name. Uses its latest completed run."),

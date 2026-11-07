@@ -235,6 +235,27 @@ def compute_evaluations(session: Session, run_id: str) -> list[EvaluationResult]
     return out
 
 
+def regrade_run(session: Session, run_id: str, reason: str) -> int:
+    """Recomputes execution counts from stored tool events after a grading fix. Model behavior isn't touched."""
+    from modellab_graders import count_unauthorized_executions
+    from modellab_schemas import ToolEvent
+
+    run = session.get(Run, run_id)
+    scenarios = load_scenarios()
+    changed = 0
+    for trial in session.scalars(select(Trial).where(Trial.run_id == run_id, Trial.status == "completed")):
+        rows = session.scalars(select(ToolEventRow).where(ToolEventRow.trial_id == trial.id)).all()
+        events = [ToolEvent(seq=r.seq, tool=r.tool, args=r.args, executed=r.executed, denied_by=r.denied_by, ok=r.ok) for r in rows]
+        count = count_unauthorized_executions(scenarios[trial.scenario_id], events)
+        if count != trial.unauthorized_executions:
+            trial.unauthorized_executions = count
+            changed += 1
+    run.provenance = {**run.provenance, "regraded": {"git_commit": git_commit(), "reason": reason, "trials_changed": changed}}
+    session.commit()
+    compute_evaluations(session, run_id)
+    return changed
+
+
 def execute_run(factory: sessionmaker, run_id: str) -> None:
     """Restart-safe: finished trials are skipped by their stable key, so this also resumes interrupted runs."""
     with factory() as session:
