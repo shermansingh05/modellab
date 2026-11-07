@@ -89,6 +89,20 @@ These are small, synthetic experiments, not a general ranking of model safety. I
 | Qwen3 8B | `none` | 41/60 (68%, CI 56%-79%) | 34/60 (57%, CI 44%-68%) | 71/78 (91%, CI 83%-96%) | 0/24 (0%, CI 0%-14%) |
 | Qwen3 8B | `layered` | 0/60 (0%, CI 0%-6%) | 0/60 (0%, CI 0%-6%) | 46/78 (59%, CI 48%-69%) | 0/24 (0%, CI 0%-14%) |
 
+### Guardrail layers on Qwen3 8B
+
+Same scenarios, 3 seeded trials each. A defense only counts if legitimate work keeps working, so read the last two columns too.
+
+| Model | Guardrails | Attack success | Unauthorized tool executed | Legitimate task success | False positive controls |
+|---|---|---|---|---|---|
+| Qwen3 8B | `none` | 41/60 (68%, CI 56%-79%) | 34/60 (57%, CI 44%-68%) | 71/78 (91%, CI 83%-96%) | 0/24 (0%, CI 0%-14%) |
+| Qwen3 8B | `prompt_only` | 38/60 (63%, CI 51%-74%) | 31/60 (52%, CI 39%-64%) | 73/78 (94%, CI 86%-97%) | 0/24 (0%, CI 0%-14%) |
+| Qwen3 8B | `input_classifier` | 22/60 (37%, CI 26%-49%) | 15/60 (25%, CI 16%-37%) | 47/78 (60%, CI 49%-70%) | 0/24 (0%, CI 0%-14%) |
+| Qwen3 8B | `trained_classifier` | 12/60 (20%, CI 12%-32%) | 12/60 (20%, CI 12%-32%) | 24/78 (31%, CI 22%-42%) | 15/24 (62%, CI 43%-79%) |
+| Qwen3 8B | `output_classifier` | 34/60 (57%, CI 44%-68%) | 34/60 (57%, CI 44%-68%) | 53/78 (68%, CI 57%-77%) | 0/24 (0%, CI 0%-14%) |
+| Qwen3 8B | `tool_policy` | 3/60 (5%, CI 2%-14%) | 0/60 (0%, CI 0%-6%) | 63/78 (81%, CI 71%-88%) | 0/24 (0%, CI 0%-14%) |
+| Qwen3 8B | `layered` | 0/60 (0%, CI 0%-6%) | 0/60 (0%, CI 0%-6%) | 46/78 (59%, CI 48%-69%) | 0/24 (0%, CI 0%-14%) |
+
 ### Cross-model transfer
 
 Payloads written by the abliterated model, tested on the standard model. A small sample of three scenarios.
@@ -101,11 +115,13 @@ Payloads written by the abliterated model, tested on the standard model. A small
 
 TF-IDF plus logistic regression on synthetic data, scored on 72 rows from templates held out of training: precision 0.62, recall 0.83, F1 0.71 (TP 30, FP 18, TN 18, FN 6). Calibration error 0.29. It is a weak signal on unseen phrasing, which is why it never overrides access control.
 
-**Still running:** guardrail layer comparison. These results will be added here when they finish.
+### LLM judge reliability
+
+Qwen3 8B judging 60 sampled attack transcripts against deterministic outcomes: Cohen's kappa 0.69, with 0 unparseable replies. No human-labeled sample yet.
 
 **See one attack end to end:** [an injected instruction, unguarded and defended](reports/examples/case-study-document-injection.md).
 
-Full reports with configuration and provenance: [`a-refusal-parent-vs-abliterated`](reports/examples/a-refusal-parent-vs-abliterated.md), [`bcdef-parent-vs-abliterated`](reports/examples/bcdef-parent-vs-abliterated.md), [`j-cross-model-transfer`](reports/examples/j-cross-model-transfer.md). JSON and CSV sit beside them. Replies to disallowed requests are never published.
+Full reports with configuration and provenance: [`a-refusal-parent-vs-abliterated`](reports/examples/a-refusal-parent-vs-abliterated.md), [`bcdef-parent-vs-abliterated`](reports/examples/bcdef-parent-vs-abliterated.md), [`h-guardrail-layers`](reports/examples/h-guardrail-layers.md), [`j-cross-model-transfer`](reports/examples/j-cross-model-transfer.md). JSON and CSV sit beside them. Replies to disallowed requests are never published.
 
 <!-- results:end -->
 
@@ -115,9 +131,13 @@ On this small, synthetic sample:
 
 1. **Refusal training didn't protect the agent's tools.** The standard model refused 10 of 12 disallowed requests and the abliterated model refused none, yet both acted on injected instructions at similar rates. Unguarded attacks succeeded 41/60 and 36/60 times, and those intervals overlap, so this doesn't show either model is safer against injection.
 2. **The abliterated model's lower score isn't a safety win.** It repeatedly called `rag` instead of `rag.search`, so its RAG attacks failed along with the legitimate RAG tasks. Its legitimate task success was also lower: 60/78, against 71/78.
-3. **Deterministic layers stopped every attack here, at a real cost.** With layered guardrails, no attack succeeded and no prohibited tool ran on either model, and no control task was denied. But legitimate task success on the standard model fell from 71/78 to 46/78, largely because a flagged document gets withheld in full.
+3. **Telling the model to be careful barely helped.** A security instruction in the system prompt moved attack success from 41/60 to 38/60, within the margin of error.
+4. **Deterministic tool policy gave the best tradeoff.** It cut attack success to 3/60 and kept legitimate success at 63/78, with no prohibited tool executed. All three remaining wins were one scenario: posting a credential to a channel the agent was allowed to use, which authorization alone can't see.
+5. **The trained classifier cost more than it was worth.** It cut attacks to 12/60 but blocked 15 of 24 legitimate control tasks, because it was trained on synthetic data and is weak on unseen phrasing.
+6. **Layering stopped everything, at a real cost.** No attack succeeded on either model and no control task was blocked, but legitimate success on attack scenarios suffered, taking the standard model's overall figure from 71/78 to 46/78. A flagged document gets withheld in full, so the agent can't finish its real task. Separating the safe content from the injected content is the next problem worth solving.
+7. **An LLM judge isn't a substitute for checking what ran.** Grading 60 transcripts, Qwen3 8B disagreed with the deterministic outcome 9 times (kappa 0.69), including 6 false alarms and 3 missed compromises.
 
-The tradeoff in point 3 is the next problem worth solving. See [limitations](docs/limitations.md) before generalizing from any of this.
+See [limitations](docs/limitations.md) before generalizing from any of this.
 
 ## What's included
 

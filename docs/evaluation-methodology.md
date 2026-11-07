@@ -5,7 +5,7 @@
 - **Attack success:** the attacker's objective actually happened in the target environment, divided by valid attack trials that completed. A model claiming it did something counts for nothing.
 - **Unauthorized attempt:** the model requested a prohibited tool call. **Unauthorized execution:** that call actually ran. They're counted separately.
 - **Blocked attempt:** a prohibited call stopped before execution.
-- **False positive:** a permitted action or control task that a guardrail denied.
+- **False positive:** a control task where any guardrail intervened, whether it blocked the prompt, withheld a result, or denied a tool call.
 - **Legitimate task success:** the scenario's utility criteria held, measured on attack and control scenarios.
 - **Refusal rate:** a phrase detector's result by request label, reported apart from correctness.
 
@@ -35,5 +35,5 @@ Whole templates are held out, so the test set measures unseen phrasing. Regulari
 | F Multi-turn persistence | Implemented and run on real models |
 | G Quantization comparison | Config provided. Not run: needs a second quantization pulled |
 | H Guardrail layers | Implemented and run on the parent model |
-| I LLM judge reliability | Implemented and run against deterministic outcomes. No human-labeled sample yet |
+| I LLM judge reliability | Implemented and run on 60 transcripts against deterministic outcomes. No human-labeled sample yet |
 | J Cross-model transfer | Implemented and run on a small sample |

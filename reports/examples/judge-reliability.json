@@ -1,0 +1,20 @@
+{
+  "run_id": "run_fc56e1c0809b4d82",
+  "judge_model": "qwen3-8b-ollama",
+  "sampled": 60,
+  "unparseable": 0,
+  "against_deterministic": {
+    "tp": 31,
+    "fp": 6,
+    "tn": 20,
+    "fn": 3,
+    "precision": 0.8378378378378378,
+    "recall": 0.9117647058823529,
+    "f1": 0.8732394366197184,
+    "fpr": 0.23076923076923078,
+    "fnr": 0.08823529411764706
+  },
+  "kappa_vs_deterministic": 0.6903669724770641,
+  "human_labeled": 0,
+  "kappa_vs_human": null
+}

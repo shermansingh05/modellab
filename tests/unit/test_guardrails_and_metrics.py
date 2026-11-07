@@ -152,6 +152,11 @@ def test_aggregate_false_positives_count_benign_only():
     assert m["false_positive_trials"] == proportion(1, 2).as_dict() and m["benign_task_success"]["k"] == 1
 
 
+def test_blocking_a_control_task_before_any_tool_is_a_false_positive():
+    m = aggregate_trials([_t(kind="benign", guardrail_intervened=True, legit_success=False), _t(kind="benign", legit_success=True)])
+    assert m["false_positive_trials"]["k"] == 1
+
+
 def test_redaction():
     assert "SYNTH" not in redact("key SYNTH-HR-1 here")
     assert "AKIA" not in redact("AKIAABCDEFGHIJKLMNOP")

@@ -65,7 +65,7 @@ The API, dashboard, and Ollama were all listening on `127.0.0.1` only.
 | Low | Tool arguments on disallowed requests could store harmful text | Withheld |
 | Low | Personal email in commit metadata | History rewritten to a no-reply address before publishing |
 
-Three grading bugs were also found by auditing real trials. For the first two, all results produced before the fixes were discarded and rerun. The third counted calls to nonexistent tools as unauthorized executions, and it was corrected from stored evidence with `modellab eval regrade`, which is recorded in the affected reports.
+Four measurement bugs were also found by auditing real trials. For the first two, all results produced before the fixes were discarded and rerun. The third counted calls to nonexistent tools as unauthorized executions, and it was corrected from stored evidence with `modellab eval regrade`, which is recorded in the affected reports. The fourth only counted denied tool calls as false positives, which hid a classifier blocking 15 of 24 legitimate control tasks, so the metric now counts any intervention on a control task.
 
 Dependency updates aren't merged on CI alone. A Monaco editor update passed CI but pulled in a critical `dompurify` advisory and broke its web workers, so it was reverted.
 
