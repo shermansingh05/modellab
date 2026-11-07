@@ -26,7 +26,7 @@ class OllamaAdapter(ModelAdapter):
     def __init__(self, entry: ModelEntry, base_url: str | None = None, transport: httpx.BaseTransport | None = None):
         super().__init__(entry)
         self.base_url = checked_base_url(base_url or os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434"))
-        self._client = httpx.Client(base_url=self.base_url, transport=transport, timeout=None)
+        self._client = httpx.Client(base_url=self.base_url, transport=transport, timeout=30)
 
     def _payload(self, messages: list[Message], config: GenerationConfig, stream: bool) -> dict:
         options = {"temperature": config.temperature, "top_p": config.top_p, "num_predict": config.max_tokens,

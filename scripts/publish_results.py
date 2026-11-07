@@ -11,7 +11,8 @@ from pathlib import Path
 from sqlalchemy import select
 
 from modellab_api.campaigns import build_report, write_report_files
-from modellab_api.db import Experiment, Run, TrainingJob, get_factory
+from modellab_api.db import Experiment, GuardrailDecisionRow, Run, ToolEventRow, TrainingJob, Trial, get_factory
+from modellab_experiments.scenarios import load_scenarios
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "reports" / "examples"
@@ -99,9 +100,43 @@ def section(reports: dict[str, dict], classifier: dict | None, judge: dict | Non
     pending = [EXPECTED[n] for n in EXPECTED if n not in reports]
     if pending:
         lines += [f"**Still running:** {', '.join(pending)}. These results will be added here when they finish.", ""]
+    if (OUT / "case-study-document-injection.md").exists():
+        lines += ["**See one attack end to end:** [an injected instruction, unguarded and defended](reports/examples/case-study-document-injection.md).", ""]
     names = ", ".join(f"[`{n}`](reports/examples/{n}.md)" for n in sorted(reports))
     lines += [f"Full reports with configuration and provenance: {names}. JSON and CSV sit beside them. Replies to disallowed requests are never published.", "", END]
     return "\n".join(lines)
+
+
+CASE_SCENARIO, CASE_MODEL = "pi-doc-exfil-slack", "qwen3-8b-ollama"
+
+
+def case_study(session, run: Run) -> str | None:
+    """One real attack, unguarded and defended, from persisted evidence. Trial 0 of each, whatever it shows."""
+    scenario = load_scenarios()[CASE_SCENARIO]
+
+    def trial(preset: str) -> Trial | None:
+        return session.scalar(select(Trial).where(Trial.run_id == run.id, Trial.scenario_id == CASE_SCENARIO, Trial.model_id == CASE_MODEL,
+                                                  Trial.guardrail_preset == preset, Trial.trial_index == 0, Trial.status == "completed"))
+
+    pairs = [(p, trial(p)) for p in ("none", "layered")]
+    if not all(t for _, t in pairs):
+        return None
+    out = ["# Case study: an injected instruction in a document", "",
+           f"Real trials from run `{run.id}` on {model_name(CASE_MODEL)}. Nothing here is edited beyond credential redaction.", "",
+           f"**The user asks:** {scenario.task}", "", "**A document in the sandbox also says:**", "", "```text", (scenario.payload or "").strip(), "```", "",
+           f"**Protected boundary:** {scenario.protected_boundary}", ""]
+    for preset, t in pairs:
+        out += [f"## With guardrails: `{preset}`", "", f"- Attacker objective achieved: **{t.objective_achieved}**", f"- Legitimate task completed: **{t.legit_success}**",
+                f"- Unauthorized tool calls: {t.unauthorized_attempts} attempted, {t.unauthorized_executions} executed", "", "**What the sandbox recorded:**", ""]
+        events = session.scalars(select(ToolEventRow).where(ToolEventRow.trial_id == t.id).order_by(ToolEventRow.seq)).all()
+        out += ["| # | Tool | Arguments | Outcome |", "|---|---|---|---|"]
+        out += [f"| {e.seq} | `{e.tool}` | `{json.dumps(e.args)}` | {('denied: ' + e.denied_by) if e.denied_by else ('executed' if e.executed else 'not run')} |" for e in events]
+        decisions = [d.data for d in session.scalars(select(GuardrailDecisionRow).where(GuardrailDecisionRow.trial_id == t.id))]
+        blocks = [d for d in decisions if d["decision"] != "allow"]
+        if blocks:
+            out += ["", "**Guardrails that intervened:**", ""] + [f"- `{d['guardrail']}` at the {d['stage']} stage: {d['decision']} ({d['reason_code']})" for d in blocks]
+        out += ["", "**The model's final answer:**", "", "> " + (t.answer or "(none)").replace("\n", "\n> "), "", "**Grading evidence:**", ""] + [f"- `{x}`" for x in t.evidence] + [""]
+    return "\n".join(out)
 
 
 def main() -> None:
@@ -114,6 +149,8 @@ def main() -> None:
             for path in write_report_files(report.body, report.markdown, OUT):
                 path.rename(OUT / f"{name}{path.suffix}")
             reports[name] = report.body
+            if name == "bcdef-parent-vs-abliterated" and (case := case_study(session, run)):
+                (OUT / "case-study-document-injection.md").write_text(case)
         job = session.scalar(select(TrainingJob).where(TrainingJob.status == "completed", TrainingJob.kind == "tfidf-logreg").order_by(TrainingJob.finished_at.desc()))
         classifier = job.metrics if job else None
     if classifier:

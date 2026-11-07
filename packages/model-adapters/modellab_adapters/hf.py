@@ -28,10 +28,9 @@ class TransformersAdapter(ModelAdapter):
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
         self.device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-        common = dict(revision=self.entry.revision, trust_remote_code=False)
-        self.tokenizer = AutoTokenizer.from_pretrained(self.entry.hf_repo, **common)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.entry.hf_repo, revision=self.entry.revision, trust_remote_code=False)
         self.model = AutoModelForCausalLM.from_pretrained(
-            self.entry.hf_repo, use_safetensors=True, torch_dtype="auto", **common
+            self.entry.hf_repo, revision=self.entry.revision, trust_remote_code=False, use_safetensors=True, torch_dtype="auto"
         ).to(self.device).eval()
 
     def unload_model(self) -> None:

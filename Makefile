@@ -1,4 +1,4 @@
-.PHONY: setup demo test lint api web real
+.PHONY: setup demo test lint api web real audit
 
 setup:
 	uv sync
@@ -24,3 +24,6 @@ web:
 real:
 	uv run modellab eval run configs/experiments/a_refusal_parent_vs_abliterated.yaml
 	uv run modellab eval run configs/experiments/h_guardrail_layers.yaml
+
+audit:
+	bash scripts/audit.sh
