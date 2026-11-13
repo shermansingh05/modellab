@@ -86,7 +86,7 @@ app = FastAPI(title="ModelLab", version="0.1.0", lifespan=lifespan,
               description="Local-first AI security research API. Bind to loopback. See docs/threat-model.md.")
 Admin = Depends(require_admin)
 # Stops DNS rebinding: a hostile website can't reach this loopback API under its own hostname.
-_hosts = ["127.0.0.1", "localhost", "[::1]", "testserver", *filter(None, os.environ.get("MODELLAB_ALLOWED_HOSTS", "").split(","))]
+_hosts = ["127.0.0.1", "localhost", "[::1]", *filter(None, os.environ.get("MODELLAB_ALLOWED_HOSTS", "").split(","))]
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=_hosts)
 
 
@@ -215,7 +215,7 @@ class ScenarioDraft(BaseModel):
     yaml_text: str = Field(max_length=100_000)
 
 
-@app.post("/api/scenarios/validate")
+@app.post("/api/scenarios/validate", dependencies=[Admin])
 def validate_scenario(draft: ScenarioDraft) -> dict:
     """Checks a draft against the schema. Nothing is saved: scenarios live in versioned YAML in the repository."""
     try:
