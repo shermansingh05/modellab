@@ -211,7 +211,8 @@ def eval_run(config_path: Path = typer.Argument(..., exists=True), trials: int =
     data = yaml.safe_load(config_path.read_text())
     if trials:
         data["trials"] = trials
-    _run_config(CampaignConfig.model_validate(data))
+    run_id = _run_config(CampaignConfig.model_validate(data))
+    console.print(f"Write reports with: modellab eval report {run_id}")
 
 
 @eval_app.command("compare")

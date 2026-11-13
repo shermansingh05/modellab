@@ -59,6 +59,7 @@ def test_eval_run_report_and_compare(tmp_path):
     config.write_text("name: cli\ndefenders: [mock-cautious]\nguardrails: [none]\nscenarios: [ctl-doc-summary]\n")
     output = run("eval", "run", str(config))
     run_id = next(w for w in output.split() if w.startswith("run_"))
+    assert "modellab eval report" in " ".join(output.split())  # Rich wraps long lines.
     assert json.loads(run("eval", "compare", run_id, "--json"))[0]["guardrails"] == "none"
     report_dir = tmp_path / "out"
     run("eval", "report", run_id, "--out", str(report_dir))

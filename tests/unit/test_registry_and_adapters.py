@@ -24,6 +24,13 @@ def test_remote_code_cannot_be_enabled():
         ModelEntry(**BASE, trust_remote_code=True)
 
 
+@pytest.mark.parametrize("field", ["api_key", "backend-model", "trust_remote_code_"])
+def test_unknown_fields_are_refused_not_dropped(field):
+    """A dropped field would leave a registry entry that silently differs from its config file."""
+    with pytest.raises(ValidationError):
+        ModelEntry.model_validate({**BASE, field: "whatever"})
+
+
 @pytest.mark.parametrize("revision", [None, "main", "abc123"])
 def test_transformers_requires_a_pinned_commit(revision):
     with pytest.raises(ValidationError):

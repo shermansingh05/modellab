@@ -24,9 +24,13 @@ class Backend(StrEnum):
 
 
 class ModelEntry(BaseModel):
-    """A registry entry. Remote code stays disabled, and real weights must pin a reviewed revision."""
+    """A registry entry. Remote code stays disabled, and real weights must pin a reviewed revision.
 
-    model_config = ConfigDict(protected_namespaces=())
+    Unknown fields are refused rather than dropped: a registry entry is provenance that ends up in a
+    report, so a typo like `backend-model` must fail loudly instead of vanishing from the record.
+    """
+
+    model_config = ConfigDict(protected_namespaces=(), extra="forbid")
 
     id: str = Field(pattern=r"^[a-z0-9][a-z0-9._-]*$")
     display_name: str

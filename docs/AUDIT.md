@@ -26,7 +26,7 @@ make audit
 
 | Check | Result |
 |---|---|
-| Test suite from a clean clone | 138 passed, 2 skipped (the 2 need live Ollama and Postgres, and passed when run separately) |
+| Test suite from a clean clone | 141 passed, 2 skipped (the 2 need live Ollama and Postgres, and passed when run separately) |
 | End-to-end smoke test (`make smoke`) | Real API and dashboard processes run a campaign through the proxy, and CI repeats it on every push |
 | Demo with outbound network denied by macOS `sandbox-exec` | Passed, after confirming the block stops `curl` |
 | Tracked files changed by the demo | None |
