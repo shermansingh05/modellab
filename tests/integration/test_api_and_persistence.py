@@ -31,6 +31,18 @@ def test_migrations_create_required_tables(factory):
 def test_privileged_routes_require_token(client):
     assert client.post("/api/experiments", json={}).status_code == 401
     assert client.post("/api/inference", json={}, headers={"Authorization": "Bearer wrong"}).status_code == 401
+    assert client.post("/api/scenarios/validate", json={"yaml_text": "id: x"}).status_code == 401
+
+
+def test_scenario_validation_still_works_with_a_token(client, auth):
+    body = client.post("/api/scenarios/validate", json={"yaml_text": "not: a scenario"}, headers=auth)
+    assert body.status_code == 200 and body.json()["valid"] is False
+
+
+def test_unknown_host_header_is_rejected(client):
+    """Guards the DNS-rebinding defense: only loopback hostnames may reach the API."""
+    assert client.get("/api/health", headers={"Host": "evil.example.com"}).status_code == 400
+    assert client.get("/api/health", headers={"Host": "testserver"}).status_code == 400
 
 
 def test_privileged_routes_close_without_configured_token(client, monkeypatch):

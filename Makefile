@@ -3,7 +3,7 @@
 setup:
 	uv sync
 	cd apps/web && npm ci
-	@[ -f .env ] || (printf 'MODELLAB_ADMIN_TOKEN=%s\n' "$$(openssl rand -hex 24)" > .env && chmod 600 .env)
+	@[ -f .env ] || (umask 077 && printf 'MODELLAB_ADMIN_TOKEN=%s\n' "$$(openssl rand -hex 24)" > .env)
 
 dev:
 	bash scripts/dev.sh
