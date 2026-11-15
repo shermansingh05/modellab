@@ -1,13 +1,18 @@
 """Hugging Face Transformers. Needs the `ml` extra. Remote code is never trusted, and revisions are pinned."""
 from __future__ import annotations
 
+import hashlib
 import threading
 import time
+from pathlib import Path
 
 from modellab_adapters.base import ModelAdapter
 from modellab_schemas import GenerationConfig, InferenceResult, Message
 
 SAFE_PATTERNS = ["*.safetensors", "*.json", "*.txt", "tokenizer.model", "*.jinja"]
+
+#: Read in chunks so a multi-gigabyte shard never has to fit in memory.
+_CHUNK = 1024 * 1024
 
 
 def download(repo: str, revision: str) -> str:
@@ -16,12 +21,54 @@ def download(repo: str, revision: str) -> str:
     return snapshot_download(repo, revision=revision, allow_patterns=SAFE_PATTERNS)
 
 
+def snapshot_path(repo: str, revision: str) -> str | None:
+    """Where a pinned revision already lives on disk, or None.
+
+    Resolution is local-only on purpose. A health check must never be the thing that starts a
+    multi-gigabyte download, and a digest computed from weights fetched during the check would
+    verify nothing: it would only confirm that what was just downloaded hashes to itself.
+    """
+    try:
+        from huggingface_hub import snapshot_download
+    except ImportError:
+        return None
+    try:
+        return snapshot_download(repo, revision=revision, allow_patterns=SAFE_PATTERNS, local_files_only=True)
+    except Exception:
+        return None
+
+
+def digest_tree(root: str | Path) -> str | None:
+    """A content digest over every file in a model snapshot.
+
+    This hashes the bytes the adapter will actually load, not a name a server hands back, so it
+    catches a weight file edited in place as readily as a re-pull. Paths are included alongside
+    the per-file hashes, so moving a shard or dropping a tokenizer changes the result too, and
+    they are sorted so the digest does not depend on directory order.
+    """
+    base = Path(root)
+    if not base.is_dir():
+        return None
+    files = sorted(p for p in base.rglob("*") if p.is_file())
+    if not files:
+        return None
+    tree = hashlib.sha256()
+    for path in files:
+        inner = hashlib.sha256()
+        with path.open("rb") as handle:
+            while chunk := handle.read(_CHUNK):
+                inner.update(chunk)
+        tree.update(f"{path.relative_to(base).as_posix()}:{inner.hexdigest()}\n".encode())
+    return tree.hexdigest()
+
+
 class TransformersAdapter(ModelAdapter):
     def __init__(self, entry):
         super().__init__(entry)
         self.model = None
         self.tokenizer = None
         self.device = None
+        self._digest: str | None = None
 
     def load_model(self) -> None:
         import torch
@@ -102,11 +149,26 @@ class TransformersAdapter(ModelAdapter):
             self.load_model()
         return self.tokenizer(text).input_ids
 
+    def artifact_digest(self) -> str | None:
+        """The digest of the cached snapshot, computed once per adapter.
+
+        Hashing real weights costs real I/O, so the result is memoized: a run health-checks a
+        model once, and `modellab models verify` builds one adapter per model.
+        """
+        if self._digest is None:
+            # The schema already refuses a transformers entry without a repo and a pinned commit.
+            path = snapshot_path(self.entry.hf_repo, self.entry.revision)
+            self._digest = digest_tree(path) if path else None
+        return self._digest
+
     def health_check(self) -> dict:
+        digest = self.artifact_digest()
         try:
             import torch
             import transformers
         except ImportError:
-            return {"ok": False, "backend": "transformers", "detail": "install the ml extra: uv sync --extra ml"}
+            # Verification does not need to run the model, so report the digest either way.
+            return {"ok": False, "backend": "transformers", "digest": digest,
+                    "detail": "install the ml extra: uv sync --extra ml"}
         return {"ok": True, "backend": "transformers", "version": transformers.__version__, "torch": torch.__version__,
-                "loaded": self.model is not None}
+                "digest": digest, "loaded": self.model is not None}

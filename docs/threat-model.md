@@ -20,13 +20,14 @@ ModelLab is a research tool for one trusted operator on their own machine. It is
 | Another website reaches the API by DNS rebinding | The API rejects unknown Host headers. |
 | A runaway model | Step, tool-call, token, and wall-clock budgets apply, and runs can be cancelled between steps. |
 | Weights change under a model whose results are published | A run refuses to start when a pinned digest mismatches, or when an unpinned model's digest differs from the one it last ran as. `MODELLAB_ALLOW_DIGEST_DRIFT=1` accepts a deliberate re-pull. |
+| Cached weights are edited in place, leaving the revision pin intact | A transformers model's digest is a hash of the snapshot's bytes, not of the name it was downloaded under, so an altered shard, a renamed shard and a removed tokenizer all change it. |
 | A report is opened in a spreadsheet | CSV cells that begin with a formula character are written as text, so a model id from someone else's config cannot execute on open. |
 
 ## Out of scope, and known gaps
 
 - **Sandbox isolation is logical, not enforced by the OS.** Fixtures make no network or filesystem calls because they aren't written to, but no container or seccomp profile enforces that. Running a model's generated code is deliberately not a feature.
 - **GET routes are unauthenticated.** They're meant for loopback. Traces are redacted but still sensitive, so don't expose this API.
-- **Model weights are trusted once pulled.** `modellab models verify` checks that the backend is still serving the digest the registry pinned, and refuses to start a run when an unpinned model's digest has changed since it last ran. That detects a swap, not a forgery: the digest comes from the backend's own manifest, so it is not an independent attestation of what upstream published.
+- **How much a digest proves depends on the backend.** For transformers models the digest is computed here, as a SHA-256 over the bytes of the cached snapshot, so it catches a weight file edited in place and not only a re-pull. For Ollama the digest comes from the server's own manifest: it detects a swap, but it is not an independent attestation of what upstream published, and a compromised server could report whatever it liked. vLLM exposes nothing, so a check says `unavailable`. In no case is this a signature chain back to the publisher.
 - **Local users.** Anyone with shell access can read `.env` and the database.
 
 Only test systems you own or are explicitly authorized to test.

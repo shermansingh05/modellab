@@ -6,9 +6,11 @@ report would show it. `ModelEntry.artifact_hash` existed as a field but was neve
 anything, so pinning a digest bought a reader no guarantee at all. This module is what makes it
 mean something, and what notices when an unpinned model's weights move underneath a run.
 
-Not every backend can answer the question. Ollama reports a manifest digest; transformers pins a
-40-character commit revision instead, and vLLM and the mock fixtures expose nothing. A check says
-`unavailable` in those cases rather than reporting a verification it did not perform.
+Not every backend can answer the question, and the ones that can do not answer it equally well.
+The transformers backend hashes the bytes of the cached snapshot it loads, which catches a shard
+edited in place as well as a re-pull. Ollama reports the digest from its own manifest, which
+detects a swap but is not an independent attestation. vLLM and the mock fixtures expose nothing,
+and a check says `unavailable` rather than reporting a verification it did not perform.
 """
 from __future__ import annotations
 
