@@ -22,7 +22,6 @@ from modellab_api.db import (
     GuardrailDecisionRow,
     InferenceEvent,
     Model,
-    ModelRevision,
     Run,
     ScenarioSuite,
     ScenarioVersion,
@@ -30,6 +29,7 @@ from modellab_api.db import (
     Trial,
     now,
 )
+from modellab_api.provenance import check_digest, enforce, record
 from modellab_evaluation import aggregate_trials
 from modellab_experiments.adversarial import generate_candidates
 from modellab_experiments.agent import Cancelled, run_trial
@@ -159,14 +159,17 @@ def _provenance(session: Session, config: CampaignConfig, run: Run) -> dict:
         adapter = get_adapter(entry)
         health = adapter.health_check()
         digest = health.get("digest")
+        # A run whose weights cannot be accounted for must not reach a report, so this raises
+        # before any trial executes rather than publishing numbers under a name that moved.
+        check = check_digest(session, entry, digest)
+        enforce(check)
         models[mid] = {"repo": entry.hf_repo, "revision": entry.revision, "quantization": entry.quantization,
                        "backend": entry.backend.value, "backend_model": entry.backend_model,
-                       "backend_version": health.get("version"), "artifact_digest": digest, "variant": entry.variant.value}
+                       "backend_version": health.get("version"), "artifact_digest": digest,
+                       "digest_status": check.status, "variant": entry.variant.value}
         if health.get("ok") and entry.backend != Backend.mock:
             session.get(Model, mid).download_status = "ready"
-        if digest and not session.scalar(select(ModelRevision).where(
-                ModelRevision.model_id == mid, ModelRevision.artifact_hash == digest)):
-            session.add(ModelRevision(model_id=mid, revision=entry.revision, artifact_hash=digest))
+        record(session, mid, entry.revision, digest)
     return {
         "git_commit": git_commit(), "models": models, "scenario_manifest_hash": manifest_hash(),
         "guardrail_config_hashes": {p: _guardrails(p).config_hash() for p in config.guardrails},

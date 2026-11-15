@@ -19,12 +19,14 @@ ModelLab is a research tool for one trusted operator on their own machine. It is
 | Model-written SQL reaches the host | An authorizer denies ATTACH, DETACH, and PRAGMA, so the query stays in the in-memory database. Queries get a time limit and a row cap. |
 | Another website reaches the API by DNS rebinding | The API rejects unknown Host headers. |
 | A runaway model | Step, tool-call, token, and wall-clock budgets apply, and runs can be cancelled between steps. |
+| Weights change under a model whose results are published | A run refuses to start when a pinned digest mismatches, or when an unpinned model's digest differs from the one it last ran as. `MODELLAB_ALLOW_DIGEST_DRIFT=1` accepts a deliberate re-pull. |
+| A report is opened in a spreadsheet | CSV cells that begin with a formula character are written as text, so a model id from someone else's config cannot execute on open. |
 
 ## Out of scope, and known gaps
 
 - **Sandbox isolation is logical, not enforced by the OS.** Fixtures make no network or filesystem calls because they aren't written to, but no container or seccomp profile enforces that. Running a model's generated code is deliberately not a feature.
 - **GET routes are unauthenticated.** They're meant for loopback. Traces are redacted but still sensitive, so don't expose this API.
-- **Model weights are trusted once pulled.** Ollama pulls are recorded by digest but not independently verified.
+- **Model weights are trusted once pulled.** `modellab models verify` checks that the backend is still serving the digest the registry pinned, and refuses to start a run when an unpinned model's digest has changed since it last ran. That detects a swap, not a forgery: the digest comes from the backend's own manifest, so it is not an independent attestation of what upstream published.
 - **Local users.** Anyone with shell access can read `.env` and the database.
 
 Only test systems you own or are explicitly authorized to test.

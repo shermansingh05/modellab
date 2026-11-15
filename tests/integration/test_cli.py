@@ -80,3 +80,23 @@ def test_train_classifier():
 @pytest.mark.parametrize("command", [["--help"], ["models", "--help"], ["eval", "--help"], ["train", "--help"]])
 def test_help(command):
     assert "Usage" in run(*command)
+
+
+def test_models_verify_gates_on_the_digest():
+    """`modellab models verify` is meant to be a gate in a script, so its exit code has to mean something."""
+    checks = {c["model_id"]: c for c in json.loads(run("models", "verify", "--json"))}
+    assert checks["mock-obedient"]["status"] == "unavailable"
+    assert all(c["ok"] for c in checks.values()), [c for c in checks.values() if not c["ok"]]
+    assert "unavailable" in run("models", "verify", "mock-obedient")
+    assert runner.invoke(app, ["models", "verify", "ghost"]).exit_code == 1
+
+
+def test_models_verify_exits_nonzero_when_a_pin_is_wrong(monkeypatch):
+    """A wrong pin must fail the command, not just colour a row red."""
+    from modellab_api import provenance
+
+    monkeypatch.setattr(provenance, "verify_model",
+                        lambda session, entry: provenance.DigestCheck(entry.id, "mismatch", live="a", expected="b"))
+    result = runner.invoke(app, ["models", "verify", "mock-obedient"])
+    assert result.exit_code == 1
+    assert "not trustworthy" in result.output

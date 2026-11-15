@@ -71,6 +71,23 @@ def build_markdown(body: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+#: Excel, LibreOffice and Sheets all read a cell beginning with one of these as a formula, not text.
+FORMULA_LEADERS = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _inert(value):
+    """Keep a text cell text.
+
+    Model ids and preset names reach a report from a config file, and a config file is exactly the
+    kind of thing one researcher hands another. A model called `=HYPERLINK(...)` would otherwise
+    execute when a reader opens the export, which turns reading someone's results into a risk.
+    Numbers are written unchanged, so the columns still compute.
+    """
+    if isinstance(value, str) and value.startswith(FORMULA_LEADERS):
+        return "'" + value
+    return value
+
+
 def to_csv(body: dict) -> str:
     buffer = io.StringIO()
     writer = csv.writer(buffer)
@@ -80,5 +97,6 @@ def to_csv(body: dict) -> str:
                      "unauthorized_attempt_rate", "unauthorized_execution_rate", "false_positive_trials"):
             p = e["metrics"][name]
             ci = p["ci95"] or [None, None]
-            writer.writerow([e["model_id"], e["guardrail_preset"], name, p["k"], p["n"], p["rate"], ci[0], ci[1]])
+            row = [e["model_id"], e["guardrail_preset"], name, p["k"], p["n"], p["rate"], ci[0], ci[1]]
+            writer.writerow([_inert(v) for v in row])
     return buffer.getvalue()
