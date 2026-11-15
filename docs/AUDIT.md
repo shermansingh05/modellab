@@ -67,13 +67,40 @@ The API, dashboard, and Ollama were all listening on `127.0.0.1` only.
 
 Four measurement bugs were also found by auditing real trials. For the first two, all results produced before the fixes were discarded and rerun. The third counted calls to nonexistent tools as unauthorized executions, and it was corrected from stored evidence with `modellab eval regrade`, which is recorded in the affected reports. The fourth only counted denied tool calls as false positives, which hid a classifier blocking 15 of 24 legitimate control tasks, so the metric now counts any intervention on a control task.
 
-Dependency updates aren't merged on CI alone. A Monaco editor update passed CI but pulled in a critical `dompurify` advisory and broke its web workers, so it was reverted.
+Dependency updates aren't merged on CI alone. A Monaco editor update passed CI but pulled in a critical `dompurify` advisory and broke its web workers, so it was reverted. That decision was re-checked on the dates below and still holds.
+
+## Dependency decisions
+
+Pins are exact, so every upgrade is deliberate. These were applied together and verified as a set:
+
+| Upgraded | From | To |
+|---|---|---|
+| fastapi | 0.162.0 | 0.162.4 |
+| pydantic | 2.10.6 | 2.14.3 |
+| sqlalchemy | 2.0.37 | 2.1.8 |
+| psycopg[binary] | 3.2.4 | 3.3.8 |
+| pyyaml | 6.0.2 | 6.0.3 |
+| typer | 0.27.3 | 0.29.0 |
+| scikit-learn | 1.6.1 | 1.9.1 |
+| numpy | 2.2.2 | 2.5.4 |
+| datasets | 5.1.0 | 5.2.0 |
+| ruff | 0.17.3 | 0.17.4 |
+
+The scikit-learn and NumPy majors matter most, because the published classifier numbers come from them. Retraining on 1.9.1 and NumPy 2.5.4 reproduced the baseline exactly — same confusion matrix (TP=30 FP=18 TN=18 FN=6) and the same artifact SHA-256, `d6e7c322527f…` — so [the classifier baseline](../reports/examples/classifier-baseline.json) still describes the artifact the guardrail loads.
+
+Held back, with reasons:
+
+| Held | Why |
+|---|---|
+| `monaco-editor` 0.57.0 | Depends on `dompurify` ≤ 3.4.16. Installing it turns `npm audit` from zero findings into one critical DOM-XSS advisory, so the update is a net security regression. |
+| `typescript` 7.0.2 | A major release. 5.9.3 is current, type-checks clean, and nothing here needs 7. |
+| `dramatiq[redis]` 2.2.1 | A major release on the optional queue path, which has no Redis available on the audit machine and so cannot be exercised. Shipping an untested major on a code path the tests skip would be guessing. |
 
 ## Residual risks
 
 - **The sandbox is logical.** Tools only touch in-memory state by design, but no container or seccomp profile enforces that.
 - **Read routes have no authentication.** They rely on loopback binding and the Host check, so any local process can read traces.
-- **Weights are trusted once pulled.** Ollama pulls are recorded by digest, not independently verified.
+- **Weights are trusted once pulled.** `modellab models verify` checks that a backend is still serving the digest the registry pinned, and a run refuses to start when an unpinned model's digest has changed since it last ran. That detects a swap, not a forgery: the digest is the backend's own manifest value, not an independent attestation of what upstream published.
 - **The scans have limits.** Pattern-based secret scanning and static analysis can miss things, and advisory results change over time. Re-run `make audit`.
 - **The Linux network-block path in `make audit` hasn't been tested.** It was only run on macOS.
 - **Written but not exercised:** the Transformers and vLLM adapters, the Dramatiq worker, and Docker Compose. See [limitations](limitations.md).
