@@ -12,7 +12,7 @@ from typing import Any
 
 import yaml
 from fastapi import Depends, FastAPI, HTTPException, Query
-from fastapi.responses import PlainTextResponse, StreamingResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -38,7 +38,6 @@ from modellab_api.db import (
     GuardrailDecisionRow,
     InferenceEvent,
     Model,
-    ModelRevision,
     ResearchReport,
     Run,
     ToolEventRow,
@@ -47,6 +46,7 @@ from modellab_api.db import (
     get_factory,
     now,
 )
+from modellab_api.provenance import check_digest, record, verify_model
 from modellab_experiments.scenarios import load_scenarios, manifest_hash
 from modellab_guardrails import GUARDRAIL_PRESETS, build_guardrails
 from modellab_inference import run_inference
@@ -88,6 +88,37 @@ Admin = Depends(require_admin)
 # Stops DNS rebinding: a hostile website can't reach this loopback API under its own hostname.
 _hosts = ["127.0.0.1", "localhost", "[::1]", *filter(None, os.environ.get("MODELLAB_ALLOWED_HOSTS", "").split(","))]
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=_hosts)
+
+# This API answers with JSON, Markdown, CSV and NDJSON, and never with a document meant to be
+# rendered. Saying so outright means a browser that somehow reaches a response cannot be talked
+# into sniffing it into active content, framing it, or leaking a referrer back to an attacker.
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; sandbox",
+    "Cross-Origin-Resource-Policy": "same-origin",
+}
+#: Nothing this API accepts is legitimately large: the biggest body is a scenario YAML or a short
+#: message list. Default 2 MiB, raised with MODELLAB_MAX_BODY_BYTES.
+MAX_BODY_BYTES = int(os.environ.get("MODELLAB_MAX_BODY_BYTES", 2 * 1024 * 1024))
+
+
+@app.middleware("http")
+async def guard_response(request, call_next):
+    """Reject oversized bodies up front, and state the response's limits on the way out.
+
+    The size check reads the declared Content-Length, which is what every normal client sends. A
+    chunked request declares no length and is not caught here; the real backstop for that is the
+    reverse proxy or ASGI server in front of this app, not application code.
+    """
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > MAX_BODY_BYTES:
+        return JSONResponse({"detail": f"request body exceeds {MAX_BODY_BYTES} bytes"}, status_code=413)
+    response = await call_next(request)
+    for header, value in SECURITY_HEADERS.items():
+        response.headers.setdefault(header, value)  # A route that set its own header keeps it.
+    return response
 
 
 @app.get("/api/health")
@@ -137,14 +168,24 @@ def get_model(model_id: str, session: Session = Depends(session_dep)) -> dict:
 @app.get("/api/models/{model_id}/health")
 def model_health(model_id: str, session: Session = Depends(session_dep)) -> dict:
     row = _model(session, model_id)
-    result = get_adapter(ModelEntry.model_validate(row.entry)).health_check()
+    entry = ModelEntry.model_validate(row.entry)
+    result = get_adapter(entry).health_check()
     digest = result.get("digest")
     if row.entry["backend"] != "mock":
         row.download_status = "ready" if digest or result.get("ok") else row.download_status
-    if digest and not session.scalar(select(ModelRevision).where(ModelRevision.model_id == row.id, ModelRevision.artifact_hash == digest)):
-        session.add(ModelRevision(model_id=row.id, revision=row.entry.get("revision"), artifact_hash=digest))
+    # Health is diagnostic, so a failing digest check is reported rather than raised. Only a
+    # passing check writes to the revision history, so a mismatch cannot launder itself into it.
+    check = check_digest(session, entry, digest)
+    if check.status in ("verified", "unpinned"):
+        record(session, row.id, entry.revision, digest)
     session.commit()
-    return result
+    return {**result, "digest_check": check.as_dict()}
+
+
+@app.get("/api/models/{model_id}/verify")
+def model_verify(model_id: str, session: Session = Depends(session_dep)) -> dict:
+    """Confirm the backend is serving the weights this registry entry names, before trusting a result."""
+    return verify_model(session, ModelEntry.model_validate(_model(session, model_id).entry)).as_dict()
 
 
 @app.post("/api/models/{model_id}/pull", dependencies=[Admin])

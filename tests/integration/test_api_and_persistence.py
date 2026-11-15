@@ -288,3 +288,78 @@ def test_regrade_fixes_counts_from_stored_events_and_records_it():
         assert s.scalar(select(Trial).where(Trial.run_id == run_id)).unauthorized_executions == honest
         assert s.get(Run, run_id).provenance["regraded"]["reason"] == "test"
         assert "Re-graded from stored evidence" in build_report(s, run_id).markdown
+
+
+def test_responses_state_their_limits(client):
+    """A loopback API that only ever returns data should say it is not a document to render."""
+    headers = client.get("/api/health").headers
+    assert headers["X-Content-Type-Options"] == "nosniff"
+    assert headers["X-Frame-Options"] == "DENY"
+    assert headers["Referrer-Policy"] == "no-referrer"
+    assert "default-src 'none'" in headers["Content-Security-Policy"]
+
+
+def test_a_route_keeps_its_own_cache_header(client):
+    """The event stream sets Cache-Control itself; the middleware must not overwrite a route's choice."""
+    from modellab_api.main import SECURITY_HEADERS
+
+    assert "Cache-Control" not in SECURITY_HEADERS
+
+
+def test_an_oversized_body_is_refused_before_it_is_parsed(client, auth):
+    from modellab_api.main import MAX_BODY_BYTES
+
+    oversized = client.post("/api/inference", headers={**auth, "Content-Length": str(MAX_BODY_BYTES + 1)},
+                            content=b"{}" + b" " * 10)
+    assert oversized.status_code == 413
+    assert str(MAX_BODY_BYTES) in oversized.json()["detail"]
+
+
+def test_verify_reports_honestly_for_a_backend_with_no_digest(client):
+    """mock-obedient has no artifact digest, and the route must not imply it verified one."""
+    body = client.get("/api/models/mock-obedient/verify").json()
+    assert body["status"] == "unavailable" and body["ok"] is True
+    assert body["live_digest"] is None
+
+
+def test_model_health_carries_the_digest_check(client):
+    body = client.get("/api/models/mock-obedient/health").json()
+    assert body["digest_check"]["model_id"] == "mock-obedient"
+
+
+def test_csv_export_cannot_carry_a_formula(client):
+    """A model id from someone else's config must land in a spreadsheet as text, not as code."""
+    from modellab_evaluation.report import to_csv
+
+    body = {"evaluations": [{"model_id": "=HYPERLINK(\"http://evil.test\")", "guardrail_preset": "none",
+                             "metrics": {name: {"k": 0, "n": 0, "rate": 0.0, "ci95": None} for name in
+                                         ("attack_success", "legit_task_success", "benign_task_success",
+                                          "guardrail_block_rate", "unauthorized_attempt_rate",
+                                          "unauthorized_execution_rate", "false_positive_trials")}}]}
+    row = to_csv(body).splitlines()[1]
+    assert row.startswith("\"'=HYPERLINK") or row.startswith("'=HYPERLINK")
+    assert not row.lstrip('"').startswith("=")
+
+
+def test_a_run_refuses_to_start_when_the_pinned_digest_is_wrong(monkeypatch):
+    """Fail closed: numbers attributed to weights we cannot account for must never reach a report."""
+    from modellab_adapters.mock import MockAdapter
+    from modellab_api.db import Model
+
+    monkeypatch.setattr(MockAdapter, "health_check",
+                        lambda self: {"ok": True, "backend": "mock", "digest": "b" * 64})
+    factory = get_factory()
+    with factory() as s:
+        s.add(Model(id="pinned-wrong", entry={
+            "id": "pinned-wrong", "display_name": "Pinned wrong", "family": "fixture", "backend": "mock",
+            "variant": "fixture", "artifact_hash": "a" * 64}))
+        s.commit()
+        config = CampaignConfig(name="pinned-wrong-run", defenders=["pinned-wrong"], guardrails=["none"],
+                                scenarios=["ctl-doc-summary"])
+        run_id = create_run(s, create_experiment(s, config).id).id
+    with pytest.raises(Exception, match="different weights"):
+        execute_run(factory, run_id)
+    with factory() as s:
+        run = s.get(Run, run_id)
+        assert run.status == "failed" and "different weights" in run.error
+        assert s.scalar(select(Trial).where(Trial.run_id == run_id)) is None

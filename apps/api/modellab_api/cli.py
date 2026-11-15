@@ -107,6 +107,34 @@ def models_inspect(model_id: str) -> None:
         _emit({**entry.model_dump(mode="json"), "health": get_adapter(entry).health_check()})
 
 
+@models_app.command("verify")
+def models_verify(model_id: str = typer.Argument(None, help="Defaults to every registered model."),
+                  as_json: bool = JsonOpt) -> None:
+    """Check that each backend is serving the weights its registry entry names.
+
+    Exits non-zero if any model's digest is pinned and wrong, or has changed since it last ran, so
+    this works as a gate in a script: verify, then run, then trust the report.
+    """
+    from modellab_api.provenance import verify_model
+
+    with get_factory()() as session:
+        rows = sync_registry(session)
+        entries = [_entry(session, model_id)] if model_id else [ModelEntry.model_validate(r.entry) for r in rows]
+        checks = [verify_model(session, entry) for entry in entries]
+    if as_json:
+        _emit([c.as_dict() for c in checks])
+    else:
+        table = Table("Model", "Status", "Detail", title="Artifact digest verification")
+        for c in checks:
+            colour = "green" if c.status == "verified" else "yellow" if c.ok else "red"
+            table.add_row(c.model_id, f"[{colour}]{c.status}[/{colour}]", c.detail)
+        console.print(table)
+    unverified = [c.model_id for c in checks if not c.ok]
+    if unverified:
+        console.print(f"[red]Not accounted for: {', '.join(unverified)}.[/red] Results from these models are not trustworthy.")
+        raise typer.Exit(1)
+
+
 @models_app.command("pull")
 def models_pull(model_id: str) -> None:
     """Download weights, from a pinned revision where the backend supports it."""

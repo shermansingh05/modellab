@@ -161,6 +161,7 @@ You need [Ollama](https://ollama.com) and about 16 GB of unified memory or VRAM.
 ```bash
 uv run modellab doctor
 uv run modellab models pull qwen3-8b-ollama
+uv run modellab models verify          # confirm the backend serves the weights the registry names
 uv run modellab eval run configs/experiments/h_guardrail_layers.yaml
 ```
 
@@ -168,6 +169,7 @@ uv run modellab eval run configs/experiments/h_guardrail_layers.yaml
 
 ```bash
 uv run modellab scenarios list
+uv run modellab models verify
 uv run modellab infer mock-cautious "Hello"
 uv run modellab eval compare <run-id> <run-id>
 uv run modellab eval report <run-id>
