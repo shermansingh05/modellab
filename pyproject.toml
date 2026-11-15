@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-queue = ["dramatiq[redis]==1.17.1"]
+queue = ["dramatiq[redis]==2.2.1"]
 ml = [
   "torch==2.15.0",
   "transformers==5.22.2",
