@@ -363,3 +363,7 @@ def test_a_run_refuses_to_start_when_the_pinned_digest_is_wrong(monkeypatch):
         run = s.get(Run, run_id)
         assert run.status == "failed" and "different weights" in run.error
         assert s.scalar(select(Trial).where(Trial.run_id == run_id)) is None
+        # This model is a deliberate trap, and the suite shares one database. Leaving it registered
+        # makes every later check over "all models" fail on it, which is a fixture leak, not a bug.
+        s.delete(s.get(Model, "pinned-wrong"))
+        s.commit()

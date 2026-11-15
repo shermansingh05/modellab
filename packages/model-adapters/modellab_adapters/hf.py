@@ -14,6 +14,10 @@ SAFE_PATTERNS = ["*.safetensors", "*.json", "*.txt", "tokenizer.model", "*.jinja
 #: Read in chunks so a multi-gigabyte shard never has to fit in memory.
 _CHUNK = 1024 * 1024
 
+#: This digest is a hash of the snapshot's bytes. The kind travels with the value so it is never
+#: compared against a digest that was arrived at some other way.
+SNAPSHOT = "snapshot"
+
 
 def download(repo: str, revision: str) -> str:
     from huggingface_hub import snapshot_download
@@ -158,7 +162,8 @@ class TransformersAdapter(ModelAdapter):
         if self._digest is None:
             # The schema already refuses a transformers entry without a repo and a pinned commit.
             path = snapshot_path(self.entry.hf_repo, self.entry.revision)
-            self._digest = digest_tree(path) if path else None
+            tree = digest_tree(path) if path else None
+            self._digest = f"{SNAPSHOT}:{tree}" if tree else None
         return self._digest
 
     def health_check(self) -> dict:
@@ -171,4 +176,4 @@ class TransformersAdapter(ModelAdapter):
             return {"ok": False, "backend": "transformers", "digest": digest,
                     "detail": "install the ml extra: uv sync --extra ml"}
         return {"ok": True, "backend": "transformers", "version": transformers.__version__, "torch": torch.__version__,
-                "digest": digest, "loaded": self.model is not None}
+                "digest": digest, "digest_kind": SNAPSHOT if digest else None, "loaded": self.model is not None}

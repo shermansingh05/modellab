@@ -20,14 +20,20 @@ ModelLab is a research tool for one trusted operator on their own machine. It is
 | Another website reaches the API by DNS rebinding | The API rejects unknown Host headers. |
 | A runaway model | Step, tool-call, token, and wall-clock budgets apply, and runs can be cancelled between steps. |
 | Weights change under a model whose results are published | A run refuses to start when a pinned digest mismatches, or when an unpinned model's digest differs from the one it last ran as. `MODELLAB_ALLOW_DIGEST_DRIFT=1` accepts a deliberate re-pull. |
-| Cached weights are edited in place, leaving the revision pin intact | A transformers model's digest is a hash of the snapshot's bytes, not of the name it was downloaded under, so an altered shard, a renamed shard and a removed tokenizer all change it. |
+| Cached weights are edited in place, leaving every name intact | Digests are hashes of the bytes on disk, not of the names they are stored under. For transformers that is the whole snapshot; for Ollama it is every blob the manifest references, re-hashed rather than trusted to match the filename Ollama derived from its contents. An altered, renamed or missing file changes the result. |
+| A pinned digest that cannot be checked is taken as a pass | It is not. A pin is a request to verify, so a backend that reports no digest, or one of a kind the pin cannot be compared against, refuses the run instead of passing as unverified. |
 | A report is opened in a spreadsheet | CSV cells that begin with a formula character are written as text, so a model id from someone else's config cannot execute on open. |
 
 ## Out of scope, and known gaps
 
 - **Sandbox isolation is logical, not enforced by the OS.** Fixtures make no network or filesystem calls because they aren't written to, but no container or seccomp profile enforces that. Running a model's generated code is deliberately not a feature.
 - **GET routes are unauthenticated.** They're meant for loopback. Traces are redacted but still sensitive, so don't expose this API.
-- **How much a digest proves depends on the backend.** For transformers models the digest is computed here, as a SHA-256 over the bytes of the cached snapshot, so it catches a weight file edited in place and not only a re-pull. For Ollama the digest comes from the server's own manifest: it detects a swap, but it is not an independent attestation of what upstream published, and a compromised server could report whatever it liked. vLLM exposes nothing, so a check says `unavailable`. In no case is this a signature chain back to the publisher.
+- **How much a digest proves depends on the backend, so each one says which it is.** Every digest is tagged with the method that produced it, and comparisons only ever happen within a method.
+  - `snapshot:` — transformers. SHA-256 over the bytes of the cached snapshot.
+  - `blobs:` — Ollama on loopback, when the store on disk can be tied to the answering server. The digest `/api/tags` reports appears in the local manifest as its canonical-manifest layer; finding it there identifies the store, and then every referenced blob is re-hashed. Checked against a live Ollama, and enforced at runtime, so a packaging change costs a weaker answer rather than a false pass.
+  - `manifest:` — Ollama otherwise: a remote daemon, a store that cannot be tied to it, or `MODELLAB_SKIP_BLOB_HASH=1`. This is the server repeating its own word, so it detects a swap but attests nothing; a compromised server could report whatever it liked.
+  - `unavailable` — vLLM and the mock fixtures expose nothing.
+  In no case is this a signature chain back to the publisher. Hashing a multi-gigabyte store costs real I/O: one 8B Ollama model measured about 3.5 seconds warm, and the result is computed once per model per run.
 - **Local users.** Anyone with shell access can read `.env` and the database.
 
 Only test systems you own or are explicitly authorized to test.

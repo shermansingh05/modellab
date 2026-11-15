@@ -26,7 +26,7 @@ make audit
 
 | Check | Result |
 |---|---|
-| Test suite from a clean clone | 169 passed, 2 skipped (the 2 need live Ollama and Postgres, and passed when run separately) |
+| Test suite from a clean clone | 184 passed, 2 skipped (the 2 need live Ollama and Postgres, and passed when run separately) |
 | End-to-end smoke test (`make smoke`) | Real API and dashboard processes run a campaign through the proxy, and CI repeats it on every push |
 | Demo with outbound network denied by macOS `sandbox-exec` | Passed, after confirming the block stops `curl` |
 | Tracked files changed by the demo | None |
@@ -100,7 +100,7 @@ Held back, with reasons:
 
 - **The sandbox is logical.** Tools only touch in-memory state by design, but no container or seccomp profile enforces that.
 - **Read routes have no authentication.** They rely on loopback binding and the Host check, so any local process can read traces.
-- **Weights are verified differently per backend.** `modellab models verify` checks a model's live digest against the registry pin, and a run refuses to start when an unpinned model's digest has changed since it last ran. For transformers models the digest is a SHA-256 over the bytes of the cached snapshot, so a shard edited in place is caught as well as a re-pull. For Ollama it is the server's own manifest value, which detects a swap but is not an independent attestation of what upstream published. vLLM reports no digest, so a check there says `unavailable` rather than implying a verification it did not perform.
+- **Weights are verified by hashing bytes where that is possible, and the digest says which.** `modellab models verify` checks a model's live digest against the registry pin, and a run refuses to start when an unpinned model's digest has changed since it last ran, when a pin mismatches, or when a pin cannot be checked at all. Transformers digests (`snapshot:`) and loopback Ollama digests (`blobs:`) are hashes of the bytes on disk, so a file edited in place is caught even though every filename and the server's own reported digest stay the same. A remote Ollama falls back to `manifest:`, the server's own word, which detects a swap but attests nothing. vLLM reports nothing, so a check says `unavailable`. Kinds are never compared with each other. None of this is a signature chain back to the publisher.
 - **The scans have limits.** Pattern-based secret scanning and static analysis can miss things, and advisory results change over time. Re-run `make audit`.
 - **The Linux network-block path in `make audit` hasn't been tested.** It was only run on macOS.
 - **Written but not exercised:** the Transformers and vLLM adapters, the Dramatiq worker, and Docker Compose. See [limitations](limitations.md).

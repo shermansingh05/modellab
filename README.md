@@ -161,7 +161,7 @@ You need [Ollama](https://ollama.com) and about 16 GB of unified memory or VRAM.
 ```bash
 uv run modellab doctor
 uv run modellab models pull qwen3-8b-ollama
-uv run modellab models verify          # hash the cached weights, compare against the registry pin
+uv run modellab models verify          # hash the weights on disk, compare against the registry pin
 uv run modellab eval run configs/experiments/h_guardrail_layers.yaml
 ```
 
