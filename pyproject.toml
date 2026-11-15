@@ -6,15 +6,15 @@ readme = "README.md"
 requires-python = ">=3.12,<3.14"
 license = { text = "Apache-2.0" }
 dependencies = [
-  "fastapi==0.162.4",
+  "fastapi==0.162.5",
   "uvicorn==0.54.0",
   "pydantic==2.14.3",
   "sqlalchemy==2.1.8",
   "alembic==1.20.1",
-  "psycopg[binary]==3.3.8",
+  "psycopg[binary]==3.3.9",
   "httpx==0.28.1",
   "pyyaml==6.0.3",
-  "typer==0.29.0",
+  "typer==0.29.1",
   "rich==15.0.0",
   "scikit-learn==1.9.1",
   "numpy==2.5.4",
@@ -30,7 +30,7 @@ ml = [
   "accelerate==1.15.0",
   "safetensors==0.8.0",
   "huggingface-hub==2.4.0",
-  "sentence-transformers==6.2.0",
+  "sentence-transformers==6.3.0",
   "datasets==5.2.0",
   "peft==0.21.2",
   "trl==1.17.1",
@@ -40,7 +40,7 @@ ml = [
 modellab = "modellab_api.cli:app"
 
 [dependency-groups]
-dev = ["pytest==8.3.4", "pytest-asyncio==0.25.3", "ruff==0.17.4"]
+dev = ["pytest==8.3.4", "pytest-asyncio==0.25.3", "ruff==0.17.5"]
 
 [build-system]
 requires = ["hatchling"]
