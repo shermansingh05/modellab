@@ -131,7 +131,10 @@ def models_verify(model_id: str = typer.Argument(None, help="Defaults to every r
         console.print(table)
     unverified = [c.model_id for c in checks if not c.ok]
     if unverified:
-        console.print(f"[red]Not accounted for: {', '.join(unverified)}.[/red] Results from these models are not trustworthy.")
+        # In --json mode stdout must stay parseable, since failure is when a script reads it most.
+        # The exit code and each check's `ok` field already carry the verdict.
+        if not as_json:
+            console.print(f"[red]Not accounted for: {', '.join(unverified)}.[/red] Results from these models are not trustworthy.")
         raise typer.Exit(1)
 
 

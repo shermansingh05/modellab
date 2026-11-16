@@ -21,6 +21,7 @@ ModelLab is a research tool for one trusted operator on their own machine. It is
 | A runaway model | Step, tool-call, token, and wall-clock budgets apply, and runs can be cancelled between steps. |
 | Weights change under a model whose results are published | A run refuses to start when a pinned digest mismatches, or when an unpinned model's digest differs from the one it last ran as. `MODELLAB_ALLOW_DIGEST_DRIFT=1` accepts a deliberate re-pull. |
 | Cached weights are edited in place, leaving every name intact | Digests are hashes of the bytes on disk, not of the names they are stored under. For transformers that is the whole snapshot; for Ollama it is every blob the manifest references, re-hashed rather than trusted to match the filename Ollama derived from its contents. An altered, renamed or missing file changes the result. |
+| A pin is added to a config but the database keeps the old entry | The registry sync replaces a stored entry whenever its config differs, so a pin in the file is the pin that is enforced. Models registered through the API have no config and are left alone. |
 | A pinned digest that cannot be checked is taken as a pass | It is not. A pin is a request to verify, so a backend that reports no digest, or one of a kind the pin cannot be compared against, refuses the run instead of passing as unverified. |
 | A report is opened in a spreadsheet | CSV cells that begin with a formula character are written as text, so a model id from someone else's config cannot execute on open. |
 

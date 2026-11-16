@@ -165,6 +165,8 @@ uv run modellab models verify          # hash the weights on disk, compare again
 uv run modellab eval run configs/experiments/h_guardrail_layers.yaml
 ```
 
+Both Ollama models are pinned to the exact bytes the published results came from, so a run refuses to start if your copy differs. If Ollama re-publishes a tag upstream, a fresh pull will be refused too. That's the check working: the numbers in this repo describe the pinned weights, not the new ones. To run anyway, look at what changed, then update `artifact_hash` in the model's config to the digest `models verify` reports. Set `MODELLAB_SKIP_BLOB_HASH=1` and the pin can no longer be checked, so the run will refuse rather than pass unverified.
+
 ## Common commands
 
 ```bash

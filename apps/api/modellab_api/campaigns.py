@@ -61,12 +61,24 @@ def hardware_details() -> dict:
 
 
 def sync_registry(session: Session) -> list[Model]:
-    """Adds configs/models entries that aren't in the database. Existing rows are left alone."""
-    known = {m.id for m in session.scalars(select(Model))}
+    """Bring the database in line with configs/models, which is the authority for what it defines.
+
+    Rows used to be added once and never touched again, so editing a config did nothing for any
+    database that had already seen the model. For most fields that was a nuisance. For
+    artifact_hash it was a silent fail-open: the pin was visible in the file a reader trusts and
+    absent from the record a run is checked against. A config's entry now replaces the stored one
+    whenever they differ. Download state is kept, and models registered through the API, which
+    have no config file, are left as they are.
+    """
+    known = {m.id: m for m in session.scalars(select(Model))}
     for entry in load_model_configs():
-        if entry.id not in known:
-            session.add(Model(id=entry.id, entry=entry.model_dump(mode="json"),
+        current = entry.model_dump(mode="json")
+        row = known.get(entry.id)
+        if row is None:
+            session.add(Model(id=entry.id, entry=current,
                               download_status="not_applicable" if entry.backend == Backend.mock else "unknown"))
+        elif row.entry != current:
+            row.entry = current
     session.commit()
     return list(session.scalars(select(Model).order_by(Model.id)))
 

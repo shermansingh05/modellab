@@ -83,10 +83,19 @@ def test_help(command):
 
 
 def test_models_verify_gates_on_the_digest():
-    """`modellab models verify` is meant to be a gate in a script, so its exit code has to mean something."""
-    checks = {c["model_id"]: c for c in json.loads(run("models", "verify", "--json"))}
-    assert checks["mock-obedient"]["status"] == "unavailable"
-    assert all(c["ok"] for c in checks.values()), [c for c in checks.values() if not c["ok"]]
+    """`modellab models verify` is meant to be a gate in a script, so its exit code has to mean something.
+
+    Whether the pinned real models verify depends on whether this machine has Ollama and their
+    weights, so this asserts what holds either way: a pinned model is verified or refused, never
+    waved through, and the exit code agrees with the checks.
+    """
+    result = runner.invoke(app, ["models", "verify", "--json"])
+    checks = {c["model_id"]: c for c in json.loads(result.output)}
+    assert checks["mock-obedient"]["status"] == "unavailable" and checks["mock-obedient"]["ok"]
+    for model_id in ("qwen3-8b-ollama", "qwen3-8b-abliterated-ollama"):
+        assert checks[model_id]["pinned_digest"], f"{model_id} should be pinned"
+        assert checks[model_id]["status"] in ("verified", "unverifiable", "mismatch"), checks[model_id]
+    assert result.exit_code == (0 if all(c["ok"] for c in checks.values()) else 1)
     assert "unavailable" in run("models", "verify", "mock-obedient")
     assert runner.invoke(app, ["models", "verify", "ghost"]).exit_code == 1
 
@@ -100,3 +109,14 @@ def test_models_verify_exits_nonzero_when_a_pin_is_wrong(monkeypatch):
     result = runner.invoke(app, ["models", "verify", "mock-obedient"])
     assert result.exit_code == 1
     assert "not trustworthy" in result.output
+
+
+def test_models_verify_json_stays_parseable_when_a_check_fails(monkeypatch):
+    """A script reads --json most when something is wrong, so failure must not corrupt it."""
+    from modellab_api import provenance
+
+    monkeypatch.setattr(provenance, "verify_model",
+                        lambda session, entry: provenance.DigestCheck(entry.id, "mismatch", live="a", expected="b"))
+    result = runner.invoke(app, ["models", "verify", "mock-obedient", "--json"])
+    assert result.exit_code == 1
+    assert json.loads(result.output)[0]["ok"] is False
