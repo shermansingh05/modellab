@@ -367,3 +367,81 @@ def test_a_run_refuses_to_start_when_the_pinned_digest_is_wrong(monkeypatch):
         # makes every later check over "all models" fail on it, which is a fixture leak, not a bug.
         s.delete(s.get(Model, "pinned-wrong"))
         s.commit()
+
+
+# --- The config file is the authority for the models it defines -----------------------------
+
+
+def _config_entry(**kw):
+    from modellab_schemas import ModelEntry
+
+    base = {"id": "sync-probe", "display_name": "Sync probe", "family": "fixture", "backend": "ollama",
+            "backend_model": "probe:1b"}
+    return ModelEntry.model_validate({**base, **kw})
+
+
+def test_a_pin_added_to_a_config_reaches_a_database_that_already_knows_the_model(monkeypatch):
+    """Rows used to be written once, so a later pin sat in the file and was never enforced."""
+    from modellab_api import campaigns
+    from modellab_api.db import Model
+
+    factory = get_factory()
+    try:
+        monkeypatch.setattr(campaigns, "load_model_configs", lambda: [_config_entry()])
+        with factory() as s:
+            campaigns.sync_registry(s)
+            assert s.get(Model, "sync-probe").entry["artifact_hash"] is None
+        monkeypatch.setattr(campaigns, "load_model_configs", lambda: [_config_entry(artifact_hash="blobs:" + "c" * 64)])
+        with factory() as s:
+            campaigns.sync_registry(s)
+            assert s.get(Model, "sync-probe").entry["artifact_hash"] == "blobs:" + "c" * 64
+    finally:
+        with factory() as s:
+            if row := s.get(Model, "sync-probe"):
+                s.delete(row)
+                s.commit()
+
+
+def test_syncing_a_changed_config_keeps_the_download_state(monkeypatch):
+    from modellab_api import campaigns
+    from modellab_api.db import Model
+
+    factory = get_factory()
+    try:
+        monkeypatch.setattr(campaigns, "load_model_configs", lambda: [_config_entry()])
+        with factory() as s:
+            campaigns.sync_registry(s)
+            s.get(Model, "sync-probe").download_status = "ready"
+            s.commit()
+        monkeypatch.setattr(campaigns, "load_model_configs", lambda: [_config_entry(display_name="Renamed")])
+        with factory() as s:
+            campaigns.sync_registry(s)
+            row = s.get(Model, "sync-probe")
+            assert row.entry["display_name"] == "Renamed" and row.download_status == "ready"
+    finally:
+        with factory() as s:
+            if row := s.get(Model, "sync-probe"):
+                s.delete(row)
+                s.commit()
+
+
+def test_a_model_registered_through_the_api_is_not_touched_by_a_sync(monkeypatch):
+    """It has no config file, so there is nothing for a config to be the authority over."""
+    from modellab_api import campaigns
+    from modellab_api.db import Model
+
+    factory = get_factory()
+    entry = _config_entry(id="api-only", artifact_hash="blobs:" + "d" * 64).model_dump(mode="json")
+    try:
+        with factory() as s:
+            s.add(Model(id="api-only", entry=entry, download_status="unknown"))
+            s.commit()
+        monkeypatch.setattr(campaigns, "load_model_configs", lambda: [])
+        with factory() as s:
+            campaigns.sync_registry(s)
+            assert s.get(Model, "api-only").entry == entry
+    finally:
+        with factory() as s:
+            if row := s.get(Model, "api-only"):
+                s.delete(row)
+                s.commit()

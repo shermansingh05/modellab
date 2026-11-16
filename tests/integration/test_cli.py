@@ -100,3 +100,14 @@ def test_models_verify_exits_nonzero_when_a_pin_is_wrong(monkeypatch):
     result = runner.invoke(app, ["models", "verify", "mock-obedient"])
     assert result.exit_code == 1
     assert "not trustworthy" in result.output
+
+
+def test_models_verify_json_stays_parseable_when_a_check_fails(monkeypatch):
+    """A script reads --json most when something is wrong, so failure must not corrupt it."""
+    from modellab_api import provenance
+
+    monkeypatch.setattr(provenance, "verify_model",
+                        lambda session, entry: provenance.DigestCheck(entry.id, "mismatch", live="a", expected="b"))
+    result = runner.invoke(app, ["models", "verify", "mock-obedient", "--json"])
+    assert result.exit_code == 1
+    assert json.loads(result.output)[0]["ok"] is False

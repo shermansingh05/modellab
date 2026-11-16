@@ -11,8 +11,12 @@ variant: standard
 quantization: gguf-q4_k_m
 backend: ollama
 backend_model: qwen3:8b
+# The bytes the published results came from, hashed blob by blob on 2026-11-15.
+# A run refuses to start if the store on disk differs. If an upstream re-push of this tag
+# is why, re-run `modellab models verify`, check the change, then update this pin.
+artifact_hash: blobs:a1facb4364de42b1229d8ae6b7bf92194350c0e2715843d40301042601ee7726
 chat_template_id: ollama-qwen3
 context_window: 8192
 hardware_requirements: { min_unified_memory_gb: 16 }
 trust:
-  note: "Ollama packages its own GGUF, so hf_repo and revision describe the source, not these exact bytes. Compare artifact_hash."
+  note: "Ollama packages its own GGUF, so hf_repo and revision describe the source, not these exact bytes. artifact_hash pins the bytes."
